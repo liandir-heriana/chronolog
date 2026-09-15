@@ -48,6 +48,6 @@ Target: `TSK-XXX` / Actions: files + commands / Verification: tests-lint-scan / 
 ## DoD (before `[x]` in tasks.md)
 - [ ] `pytest` green + cov >=85% on domain/use-cases
 - [ ] `ruff` + `mypy` clean, `bandit` no criticals
-- [ ] Boundary: `grep -rE "sqlalchemy|gradio|fastapi" src/*/domain` returns 0 matches
+- [ ] Boundary: `grep -rE "sqlalchemy|gradio|fastapi" src/modules/*/domain` returns 0 matches
 - [ ] AuthZ `user_id` covered by test, no secrets
 - [ ] `docker compose up --build -d` ok + ADR if major change

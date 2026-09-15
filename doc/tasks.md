@@ -6,10 +6,10 @@ This document is the **single source of truth** for tracking the progress, lifec
 
 *   **Project Phase**: Phase 1: Planning & Setup
 *   **Total Tasks**: 19
-*   **Pending (Proposed)**: 14
+*   **Pending (Proposed)**: 13
 *   **In Progress**: 0
-*   **Completed**: 5
-*   **Current Progress**: 26.32% [██░░░░░░░░]
+*   **Completed**: 6
+*   **Current Progress**: 31.58% [███░░░░░░░]
 
 ---
 
@@ -62,15 +62,16 @@ This document is the **single source of truth** for tracking the progress, lifec
 ---
 
 ### Phase 2: Core Domain & Entities (Pure Python)
-*Status: Pending*
+*Status: In Progress*
 
-#### [ ] TSK-005: Model Client Aggregate Root & Value Objects
+#### [x] TSK-005: Model Client Aggregate Root & Value Objects
 *   **Description**: Implement pure Python classes for the `Client` Entity and corresponding Value Objects (Email, Phone, ID) containing strict, self-contained business validations.
 *   **Proposed**: 2026-09-07 11:57 (UTC)
-*   **Started**: -
-*   **Completed**: -
+*   **Started**: 2026-09-15 14:11 (UTC)
+*   **Completed**: 2026-09-15 14:14 (UTC)
 *   **Assignee**: @backend-dev
 *   **Route**: `skill({name:"sdd-apply"})` via `/apply TSK-005`
+*   **Notes**: RED test first (26 tests, failed on collection), GREEN pure domain `src/modules/clients/domain/` (entities, value_objects, exceptions, stdlib only). Verify: pytest 26 passed, cov 100%, ruff/mypy/bandit clean, boundary grep 0 matches. Docker N/A (no infra in domain task, deferred to TSK-012). Fixed boundary glob to `src/modules/*/domain` in AGENTS/skill/verify.
 
 #### [ ] TSK-006: Model Appointment & SessionNotes Core Domains
 *   **Description**: Implement the `Appointment` and `SessionNotes` pure entities. Define domain business rules (e.g., appointments cannot be scheduled in the past, session notes are only editable once an appointment is completed).
