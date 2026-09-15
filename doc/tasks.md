@@ -6,10 +6,10 @@ This document is the **single source of truth** for tracking the progress, lifec
 
 *   **Project Phase**: Phase 1: Planning & Setup
 *   **Total Tasks**: 19
-*   **Pending (Proposed)**: 13
+*   **Pending (Proposed)**: 12
 *   **In Progress**: 0
-*   **Completed**: 6
-*   **Current Progress**: 31.58% [███░░░░░░░]
+*   **Completed**: 7
+*   **Current Progress**: 36.84% [████░░░░░░]
 
 ---
 
@@ -73,13 +73,14 @@ This document is the **single source of truth** for tracking the progress, lifec
 *   **Route**: `skill({name:"sdd-apply"})` via `/apply TSK-005`
 *   **Notes**: RED test first (26 tests, failed on collection), GREEN pure domain `src/modules/clients/domain/` (entities, value_objects, exceptions, stdlib only). Verify: pytest 26 passed, cov 100%, ruff/mypy/bandit clean, boundary grep 0 matches. Docker N/A (no infra in domain task, deferred to TSK-012). Fixed boundary glob to `src/modules/*/domain` in AGENTS/skill/verify.
 
-#### [ ] TSK-006: Model Appointment & SessionNotes Core Domains
+#### [x] TSK-006: Model Appointment & SessionNotes Core Domains
 *   **Description**: Implement the `Appointment` and `SessionNotes` pure entities. Define domain business rules (e.g., appointments cannot be scheduled in the past, session notes are only editable once an appointment is completed).
 *   **Proposed**: 2026-09-07 11:57 (UTC)
-*   **Started**: -
-*   **Completed**: -
+*   **Started**: 2026-09-15 14:50 (UTC)
+*   **Completed**: 2026-09-15 14:51 (UTC)
 *   **Assignee**: @backend-dev
 *   **Route**: `skill({name:"sdd-apply"})` via `/apply TSK-006`
+*   **Notes**: RED test first (14 tests, failed on collection), GREEN pure domain `src/modules/appointments/domain/` (entities, value_objects, exceptions, stdlib only). Rules: explicit `now` in `schedule()` for testability, tz-aware datetimes, SCHEDULED->COMPLETED/CANCELLED transitions, notes attach/edit only when COMPLETED and bound to same appointment. Verify: pytest 40 passed, cov 97.38%, ruff/mypy/bandit clean, boundary grep 0 matches. Docker N/A (deferred to TSK-012).
 
 #### [ ] TSK-007: Define Domain Repository Ports (Interfaces)
 *   **Description**: Design abstract classes (ports) `IClientRepository` and `IAppointmentRepository` in the domain layer, isolating core business domain code from database dependencies.
