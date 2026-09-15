@@ -15,25 +15,21 @@ The goal is to build **ChronoLog** as an **Appointment & Session Management MVP*
 
 ## 2. Web MVP Development Tools
 
-Final target is a web app launched with Docker. For the MVP (2 to 4 weeks) the selected stack is:
-
-*   **Gradio (MVP Web UI)**: Python-driven web interface. Gradio provides instant UI components (forms, tables, buttons) directly coupled to Python scripts with minimal frontend code, facilitating future AI integration [72, 118].
-*   **Docker Compose (MVP deploy)**: `app` (Gradio/Python web server) + `postgres` containers, run with `docker compose up --build -d`.
-
-Valid future options (out of MVP, do not delete, park to SHOULD/COULD/WONT):
+To deliver a functional web application in **2 to 4 weeks**, we leverage advanced generative tools to accelerate our presentation and infrastructure setup:
 
 *   **v0 (by Vercel)**: Used for rapid frontend UI generation using simple prompts, images, or mockups [30]. It auto-publishes responsive designs directly to Vercel, drastically reducing maquetation time [30].
 *   **Lovable**: A powerful tool to build full web MVPs [31]. It allows importing images or documents to draft functional components, supports AI-assisted component editing, provides built-in security scans, and automatically connects to a **Supabase (PostgreSQL)** backend for instant database integration [31].
+*   **Gradio (Alternative / Python Híbrido)**: If a fast Python-driven web interface is preferred, Gradio provides instant UI components (forms, tables, buttons) directly coupled to Python scripts with minimal frontend code, facilitating future AI integration [72, 118].
 
 ---
 
 ## 3. High-Rigor Development Process (SDD & TDD)
 
-We follow the **Spec-Driven Development (SDD)** framework and **Test-Driven Development (TDD)** to ensure structural integrity and code quality. This is the methodology reference. For the ChronoLog instantiation, see `proposal.md` Section 4.
+We follow the **Spec-Driven Development (SDD)** framework and **Test-Driven Development (TDD)** to ensure structural integrity and code quality:
 
 ### Spec-Driven Development (SDD) — The 9 Phases [63]
 1.  **explore**: Investigate the current context, codebase, and business needs [114].
-2.  **propose**: Draft a formal project proposal (like our `proposal.md`) specifying goals, non-goals, and MoSCoW scope [114].
+2.  **propose**: Draft a formal project proposal (like our `proposal-v3.md`) specifying goals, non-goals, and MoSCoW scope [114].
 3.  **spec**: Define technical requirements, schemas (JSON/OpenAPI), and strict business rules [63].
 4.  **design**: Establish architectural designs, data models, and module contracts [63].
 5.  **tasks**: Break down the design and specs into small, atomic, and clear tasks to prevent model amnesia [63].

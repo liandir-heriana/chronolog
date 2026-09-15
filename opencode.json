@@ -3,7 +3,7 @@
   "instructions": [
     "doc/proposal.md",
     "doc/adr-001-architectural-style.md",
-    "doc/tasks.md",
+    "doc/tasks-v6.md",
     "doc/information.md"
   ]
 }

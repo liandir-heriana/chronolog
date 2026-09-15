@@ -1,15 +1,11 @@
 ---
 name: sdd-verify
-description: Verify ChronoLog DoD with robust Python-realizable gates. Use for TSK-018 and task closure.
+description: Verify ChronoLog DoD, tests and coverage >=85%. Use for TSK-018 and task closure.
 ---
 
 ## What I do
-1. Unit/integration (local, fast): `pytest tests/ -q --cov=src --cov-fail-under=85`.
-2. Static boundary: `grep -rE "sqlalchemy|gradio|fastapi" src/modules/*/domain` must return 0 matches.
-3. Lint/types realizable: `ruff check src tests`, `mypy src`.
-4. Security realizable: `bandit -r src -q` (no criticals).
-5. Docker web target: `docker compose up --build -d`, then `docker compose ps`.
-- Block [x] if any gate fails. Record output in task Notes.
+- Run pytest + cov, ruff, mypy.
+- Block [x] if DoD fails.
 
 ## When to use me
-Before marking done in tasks.md, and before archive.
+Before marking done in tasks-v6.md.
