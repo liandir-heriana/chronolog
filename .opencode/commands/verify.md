@@ -3,4 +3,4 @@ description: Verify DoD + coverage
 agent: qa-tester
 ---
 
-Run pytest --cov=src --cov-fail-under=85, ruff, mypy, bandit. Block done on failure. Report in doc/tasks-v6.md.
+Run in order: 1) pytest tests/ -q --cov=src --cov-fail-under=85 2) grep -rE "sqlalchemy|gradio|fastapi" src/*/domain (0 matches) 3) ruff check src tests + mypy src 4) bandit -r src -q 5) docker compose up --build -d + docker compose ps. Block done on failure. Report in doc/tasks.md.

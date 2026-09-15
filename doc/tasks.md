@@ -1,4 +1,4 @@
-# ChronoLog Task Backlog & Tracking (tasks-v6.md)
+# ChronoLog Task Backlog & Tracking (tasks.md)
 
 This document is the **single source of truth** for tracking the progress, lifecycle, and history of all tasks in the **ChronoLog** Appointment & Session Management MVP project. It is governed by the root orchestrator `/AGENTS.md` (opencode). It follows GTD and Spec-Driven Development (SDD): spec -> tasks -> apply (TDD) -> verify -> archive, recording exact dates for each transition to prevent technical debt.
 
@@ -57,7 +57,12 @@ This document is the **single source of truth** for tracking the progress, lifec
 *   **Completed**: 2026-09-15 12:00 (UTC)
 *   **Assignee**: Architect (Human) + Orchestrator (AI)
 *   **Route**: Root orchestrator, no skill
-*   **Notes**: Removed duplicate `AGENTS (1).md`. Single `/AGENTS.md` kept. `opencode.json` points to `doc/proposal.md`, `doc/adr-001-architectural-style.md`, `doc/tasks-v6.md`, `doc/information.md`.
+*   **Notes**: Removed duplicate `AGENTS (1).md`. Single `/AGENTS.md` kept. `opencode.json` points to `doc/proposal.md`, `doc/adr-001-architectural-style.md`, `doc/tasks.md`, `doc/information.md`.
+
+---
+
+### Phase 2: Core Domain & Entities (Pure Python)
+*Status: Pending*
 
 #### [ ] TSK-005: Model Client Aggregate Root & Value Objects
 *   **Description**: Implement pure Python classes for the `Client` Entity and corresponding Value Objects (Email, Phone, ID) containing strict, self-contained business validations.
@@ -197,8 +202,9 @@ This document is the **single source of truth** for tracking the progress, lifec
 
 To update tasks in this file, follow these precise instructions:
 1.  **Do not delete history**: Keep all completed and pending tasks to maintain a full audit trail.
-2.  **Use the orchestrator**: Root `/AGENTS.md` routes every task via `Task` to one subagent in `.opencode/agents/` plus one `skill()`. Run non-interactive commands only. Parallelize independent tasks with `Task` + `Todowrite`.
-3.  **State progression**:
+2.  **SDD is mandatory**: Follow explore -> propose -> spec <-> design -> tasks -> apply (TDD RED-GREEN-REFACTOR) -> verify -> archive on every task. No improvisation.
+3.  **Use the orchestrator**: Root `/AGENTS.md` routes every task via `Task` to one subagent in `.opencode/agents/` plus one `skill()`. Run non-interactive commands only. Parallelize independent tasks with `Task` + `Todowrite`.
+4.  **State progression**:
     *   When beginning a task: Change status to `[/] In Progress`, add current timestamp to `Started` and update **Sprint Dashboard** counts.
-    *   When completing a task: Meet the DoD in `/AGENTS.md` (`pytest` + cov >=85%, `ruff` + `mypy` clean, `bandit` no criticals, AuthZ `user_id` tested, `docker compose up --build -d` ok, use `/verify` and `/sec`), change status to `[x] Completed`, add current timestamp to `Completed`, update counts, and note down brief artifacts/outcomes in `Notes` section.
-4.  **Ensure Traceability**: Always mention corresponding task IDs (`TSK-XXX`) in Git commit messages (e.g., `git commit -m "feat(domain): implement Client value objects (closes TSK-005)"`).
+    *   When completing a task: Meet the DoD in `/AGENTS.md` (`pytest` + cov >=85%, `ruff` + `mypy` clean, `bandit` no criticals, boundary grep 0 matches, AuthZ `user_id` tested, `docker compose up --build -d` ok, use `/verify` and `/sec`), then run `/archive`, change status to `[x] Completed`, add current timestamp to `Completed`, update counts, and note down brief artifacts/outcomes in `Notes` section.
+5.  **Ensure Traceability**: Always mention corresponding task IDs (`TSK-XXX`) in Git commit messages (e.g., `git commit -m "feat(domain): implement Client value objects (closes TSK-005)"`).
