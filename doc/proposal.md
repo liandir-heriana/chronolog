@@ -105,7 +105,7 @@ By passing the authenticated `userId` to the repository port, the backend guaran
 
 ## 4. Quality Roadmap & Software Life Cycle
 
-To prevent technical debt from accumulating, the development process implements a structured **Spec-Driven Development (SDD)** [8] and **Test-Driven Development (TDD)** [27] flow.
+To prevent technical debt from accumulating, the development process implements a structured **Spec-Driven Development (SDD)** [8] and **Test-Driven Development (TDD)** [27] flow. This is the ChronoLog instantiation. Methodology reference: `information.md` Section 3.
 
 ### SDD Flow Integrated into ChronoLog [8, 97]
 1. **Explore & Propose**: Current phase of validating scope and functional requirements (consolidated in this document) [97].
