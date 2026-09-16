@@ -6,10 +6,10 @@ This document is the **single source of truth** for tracking the progress, lifec
 
 *   **Project Phase**: Phase 1: Planning & Setup
 *   **Total Tasks**: 19
-*   **Pending (Proposed)**: 10
+*   **Pending (Proposed)**: 9
 *   **In Progress**: 0
-*   **Completed**: 9
-*   **Current Progress**: 47.37% [█████░░░░░]
+*   **Completed**: 10
+*   **Current Progress**: 52.63% [██████░░░░]
 
 ---
 
@@ -94,7 +94,7 @@ This document is the **single source of truth** for tracking the progress, lifec
 ---
 
 ### Phase 3: Application Use Cases & Auth Logic (TDD Backend Logic)
-*Status: Pending*
+*Status: In Progress*
 
 #### [x] TSK-008: Implement 'User Authentication & Registration' Use Case
 *   **Description**: Implement user account registration, password hashing (bcrypt/Argon2), and login token generation use cases.
@@ -105,14 +105,15 @@ This document is the **single source of truth** for tracking the progress, lifec
 *   **Route**: `skill({name:"sdd-apply"})` via `/apply TSK-008`
 *   **Notes**: RED test first (38 cases, failed collection with ModuleNotFoundError), GREEN pure `src/modules/auth/domain/` (User, AuthSession, UserEmail/UserId, IUserRepository, PBKDF2 security, stdlib only) + `src/modules/auth/use_cases/` (RegisterUser, AuthenticateUser, ports only). Hashing: PBKDF2-HMAC-SHA256/210k iters/16-B salt (bcrypt/argon2 not installed, zero native deps); token: opaque secrets.token_urlsafe (no JWT); generic InvalidCredentialsError on all login failures (no enumeration). Verify: pytest 89 passed, cov 94.84%, ruff/mypy/bandit clean, boundary grep 0 matches. Docker N/A (deferred to TSK-012/014). Guide: `verify/task8_test.md`.
 
-#### [ ] TSK-009: Implement 'Schedule Appointment' Use Case with User Data Isolation
+#### [x] TSK-009: Implement 'Schedule Appointment' Use Case with User Data Isolation
 *   **Description**: Write application use case `ScheduleAppointment`. Implement TDD verification tests ensuring scheduling logic runs correctly, respects `user_id` ownership, and raises a domain error on schedule overlaps.
 *   **Proposed**: 2026-09-07 11:57 (UTC)
-*   **Started**: -
-*   **Completed**: -
+*   **Started**: 2026-09-16 11:17 (UTC)
+*   **Completed**: 2026-09-16 11:18 (UTC)
 *   **Assignee**: @backend-dev
 *   **Route**: `skill({name:"sdd-apply"})` via `/apply TSK-009`
 *   **Review from TSK-006/007**: appointments use the `starts_at/ends_at` window model (D1) — detect overlaps via `IAppointmentRepository.list_overlapping(user_id, starts_at, ends_at, exclude_appointment_id)` (T7-D3), not `date_time + duration_minutes`.
+*   **Notes**: RED test first (9 tests, failed collection with ModuleNotFoundError), GREEN pure `src/modules/appointments/use_cases/` (ScheduleAppointment(repo, clients).execute(*, user_id, client_id, starts_at, ends_at, now) -> Appointment, stdlib+domain only). AuthZ: client ownership via IClientRepository.find_by_id_and_user_id (unknown/foreign -> AppointmentValidationError, no oracle/IDOR); window via Appointment.schedule (past/ends<=starts/naive rejected); overlap via list_overlapping half-open [S,E) (same-user overlap rejected, adjacent allowed, other-user invisible) with unified AppointmentValidationError (T9-D1, no granular errors). Verify: pytest 98 passed (89+9), cov 95.14% (use-case 100%), ruff/mypy/bandit clean, boundary grep 0 matches. Docker N/A (deferred to TSK-012/014). Guide: `verify/task9_test.md`.
 
 #### [ ] TSK-010: Implement 'Complete Appointment & Add Session Notes' Use Case
 *   **Description**: Write application use case `CompleteAppointment` which receives the text-based session notes and links them securely to the correct historical appointment for the authorized `user_id`.
