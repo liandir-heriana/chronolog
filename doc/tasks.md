@@ -6,10 +6,10 @@ This document is the **single source of truth** for tracking the progress, lifec
 
 *   **Project Phase**: Phase 1: Planning & Setup
 *   **Total Tasks**: 20
-*   **Pending (Proposed)**: 6
+*   **Pending (Proposed)**: 5
 *   **In Progress**: 0
-*   **Completed**: 14
-*   **Current Progress**: 70.00% [███████░░░]
+*   **Completed**: 15
+*   **Current Progress**: 75.00% [███████▌░░]
 
 ---
 
@@ -157,13 +157,14 @@ This document is the **single source of truth** for tracking the progress, lifec
 *   **Route**: `skill({name:"devops-docker"})` via `/up`
 *   **Notes**: Docker 29.8.0 + Compose 5.5.1 (daemon access via socket perms). `config` interpolates app+postgres; `up --build -d` green, postgres Healthy, `pg_isready` accepting connections, app ran suite 114 passed then exited by design (suite CMD), `whoami` = appuser, `down` clean. Live gate CLEARED.
 
-#### [ ] TSK-013: SQL Database Schema Design & Migration Scripts
+#### [x] TSK-013: SQL Database Schema Design & Migration Scripts
 *   **Description**: Define relational SQL schema tables (`users`, `clients`, `appointments`, `session_notes`) using proper foreign keys, `user_id` indexes, and prepare migration scripts.
 *   **Proposed**: 2026-09-07 11:57 (UTC)
-*   **Started**: -
-*   **Completed**: -
+*   **Started**: 2026-09-16 14:34 (UTC)
+*   **Completed**: 2026-09-16 14:53 (UTC)
 *   **Assignee**: @devops-engineer
 *   **Route**: `skill({name:"devops-docker"})`
+*   **Notes**: Artifacts: `db/migrations/V001__users_clients.sql` + `V002__appointments_session_notes.sql` (FK-ordered, `IF NOT EXISTS` idempotent, zero extensions) + `db/README.md` manifest. Schema mirrors domain VOs (native UUID PKs; lowercase status CHECK = AppointmentStatus; content guard 1..5000). Decisions: separate `session_notes` table w/ UNIQUE(appointment_id) 1:1 per T10-D1 (logical aggregate, physical 2-table txn in TSK-014); NO GiST exclusion — overlap stays in ScheduleAppointment/list_overlapping (no dual-enforcement drift); no UNIQUE(user_id,email); full CASCADE wipe chain. Live on postgres:16: apply exit 0, re-apply exit 0 (NOTICEs), 5 FKs + user_id indexes verified in catalog, round-trip user->client(+NULL phone)->appointment(default scheduled->completed)->notes->JOIN ok, 5/5 negatives rejected (2xFK, window/status CHECKs, notes UNIQUE), cascade DELETE leaves 0 rows, `down` clean (no -v). No secrets in db/ (only $VAR refs), .env untouched/ignored. Pytest baseline 114 passed (no .py changed). Guide: `verify/task13_test.md`.
 
 #### [ ] TSK-014: Implement Postgres Database Repositories (Adapters)
 *   **Description**: Write concrete repository implementations (adapters) that fulfill `IClientRepository` and `IAppointmentRepository` interfaces with user-level isolation using SQLAlchemy or psycopg2.
