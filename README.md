@@ -67,6 +67,7 @@ Notes:
 src/modules/{auth,clients,appointments}/{domain,use-cases,infrastructure}/
 src/core/shared/
 tests/            # mirrors src/
+db/migrations/    # versioned SQL (V001, V002...), apply order in db/README.md
 doc/              # source of truth: proposal.md, adr-001-*, tasks.md, information.md
 .opencode/        # agents, skills, commands for opencode
 ```
