@@ -6,10 +6,10 @@ This document is the **single source of truth** for tracking the progress, lifec
 
 *   **Project Phase**: Phase 1: Planning & Setup
 *   **Total Tasks**: 19
-*   **Pending (Proposed)**: 8
+*   **Pending (Proposed)**: 7
 *   **In Progress**: 0
-*   **Completed**: 11
-*   **Current Progress**: 57.89% [██████░░░░]
+*   **Completed**: 12
+*   **Current Progress**: 63.16% [██████░░░░]
 
 ---
 
@@ -125,13 +125,14 @@ This document is the **single source of truth** for tracking the progress, lifec
 *   **Review from TSK-006/007**: notes are created via the `Appointment.attach_notes()` factory and persist with the aggregate (D4); decide here whether separate notes persistence (`save_session_notes` / `find_notes_by_*`, T7-D5) is needed.
 *   **Notes**: RED test first (10 tests, failed collection with ModuleNotFoundError), GREEN pure `src/modules/appointments/use_cases/complete_appointment.py` (CompleteAppointment(repo).execute(*, appointment_id, user_id, content) -> Appointment, stdlib+domain only). AuthZ: find_by_id_and_user_id (unknown/foreign -> same AppointmentValidationError, no oracle); lifecycle via complete() (already-completed/cancelled rejected); notes via attach_notes (empty/blank/overlong rejected, bound to same appointment/user); aggregate save, no new port methods (T10-D1). Verify: pytest 108 passed (98+10), cov 95.34% (use-case 100%), ruff/mypy/bandit clean, boundary grep 0 matches. Docker N/A (deferred to TSK-012/014). Guide: `verify/task10_test.md`.
 
-#### [ ] TSK-011: Implement 'Get Client Interaction History' Use Case
+#### [x] TSK-011: Implement 'Get Client Interaction History' Use Case
 *   **Description**: Write application use case `GetClientHistory` to compile and return a client profile along with all their past chronological appointments and manual session notes owned by the authenticated `user_id`.
 *   **Proposed**: 2026-09-07 11:57 (UTC)
-*   **Started**: -
-*   **Completed**: -
+*   **Started**: 2026-09-16 11:46 (UTC)
+*   **Completed**: 2026-09-16 11:48 (UTC)
 *   **Assignee**: @backend-dev
 *   **Route**: `skill({name:"sdd-apply"})` via `/apply TSK-011`
+*   **Notes**: RED test first (6 tests, failed collection with ModuleNotFoundError), GREEN pure `src/modules/appointments/use_cases/get_client_history.py` (GetClientHistory(clients, appointments).execute(*, user_id, client_id) -> ClientHistory frozen read model (client + appointments tuple sorted ascending starts_at), stdlib+domain only). AuthZ: clients.find_by_id_and_user_id (unknown/foreign -> same AppointmentValidationError, no oracle); history via list_by_client_and_user_id on normalized client.id.value scoped by user_id (other-user never leaks, zero -> empty tuple not error, unsorted seed sorted); notes travel via aggregate attach_notes (no separate lookup, T10-D1); no DTO layer (T9-D2, T11-D1). Verify: pytest 114 passed (108+6), cov 95.61% (use-case 100%), ruff/mypy/bandit clean, boundary grep 0 matches. Docker N/A (deferred to TSK-012/014). Guide: `verify/task11_test.md`.
 
 ---
 
