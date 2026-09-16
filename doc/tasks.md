@@ -6,10 +6,10 @@ This document is the **single source of truth** for tracking the progress, lifec
 
 *   **Project Phase**: Phase 1: Planning & Setup
 *   **Total Tasks**: 19
-*   **Pending (Proposed)**: 11
+*   **Pending (Proposed)**: 10
 *   **In Progress**: 0
-*   **Completed**: 8
-*   **Current Progress**: 42.11% [████░░░░░░]
+*   **Completed**: 9
+*   **Current Progress**: 47.37% [█████░░░░░]
 
 ---
 
@@ -96,13 +96,14 @@ This document is the **single source of truth** for tracking the progress, lifec
 ### Phase 3: Application Use Cases & Auth Logic (TDD Backend Logic)
 *Status: Pending*
 
-#### [ ] TSK-008: Implement 'User Authentication & Registration' Use Case
+#### [x] TSK-008: Implement 'User Authentication & Registration' Use Case
 *   **Description**: Implement user account registration, password hashing (bcrypt/Argon2), and login token generation use cases.
 *   **Proposed**: 2026-09-15 02:50 (UTC)
-*   **Started**: -
-*   **Completed**: -
+*   **Started**: 2026-09-16 10:56 (UTC)
+*   **Completed**: 2026-09-16 10:58 (UTC)
 *   **Assignee**: @backend-dev
 *   **Route**: `skill({name:"sdd-apply"})` via `/apply TSK-008`
+*   **Notes**: RED test first (38 cases, failed collection with ModuleNotFoundError), GREEN pure `src/modules/auth/domain/` (User, AuthSession, UserEmail/UserId, IUserRepository, PBKDF2 security, stdlib only) + `src/modules/auth/use_cases/` (RegisterUser, AuthenticateUser, ports only). Hashing: PBKDF2-HMAC-SHA256/210k iters/16-B salt (bcrypt/argon2 not installed, zero native deps); token: opaque secrets.token_urlsafe (no JWT); generic InvalidCredentialsError on all login failures (no enumeration). Verify: pytest 89 passed, cov 94.84%, ruff/mypy/bandit clean, boundary grep 0 matches. Docker N/A (deferred to TSK-012/014). Guide: `verify/task8_test.md`.
 
 #### [ ] TSK-009: Implement 'Schedule Appointment' Use Case with User Data Isolation
 *   **Description**: Write application use case `ScheduleAppointment`. Implement TDD verification tests ensuring scheduling logic runs correctly, respects `user_id` ownership, and raises a domain error on schedule overlaps.
@@ -111,6 +112,7 @@ This document is the **single source of truth** for tracking the progress, lifec
 *   **Completed**: -
 *   **Assignee**: @backend-dev
 *   **Route**: `skill({name:"sdd-apply"})` via `/apply TSK-009`
+*   **Review from TSK-006/007**: appointments use the `starts_at/ends_at` window model (D1) — detect overlaps via `IAppointmentRepository.list_overlapping(user_id, starts_at, ends_at, exclude_appointment_id)` (T7-D3), not `date_time + duration_minutes`.
 
 #### [ ] TSK-010: Implement 'Complete Appointment & Add Session Notes' Use Case
 *   **Description**: Write application use case `CompleteAppointment` which receives the text-based session notes and links them securely to the correct historical appointment for the authorized `user_id`.
@@ -119,6 +121,7 @@ This document is the **single source of truth** for tracking the progress, lifec
 *   **Completed**: -
 *   **Assignee**: @backend-dev
 *   **Route**: `skill({name:"sdd-apply"})` via `/apply TSK-010`
+*   **Review from TSK-006/007**: notes are created via the `Appointment.attach_notes()` factory and persist with the aggregate (D4); decide here whether separate notes persistence (`save_session_notes` / `find_notes_by_*`, T7-D5) is needed.
 
 #### [ ] TSK-011: Implement 'Get Client Interaction History' Use Case
 *   **Description**: Write application use case `GetClientHistory` to compile and return a client profile along with all their past chronological appointments and manual session notes owned by the authenticated `user_id`.
@@ -156,6 +159,7 @@ This document is the **single source of truth** for tracking the progress, lifec
 *   **Completed**: -
 *   **Assignee**: @backend-dev
 *   **Route**: `skill({name:"sdd-apply"})` + `skill({name:"security-audit"})`
+*   **Review from TSK-007**: `delete_by_id_and_user_id` was deferred (T7-D4, no delete in MUST) — add it with its own RED cycle only if a use-case requires it; keep the unified `AppointmentValidationError`/`ClientValidationError` unless the audit mandates granular exceptions (D3).
 
 #### [ ] TSK-015: Configure Server-Side AuthN/AuthZ Middleware & Security Scans
 *   **Description**: Implement HTTP authentication/authorization middleware verifying JWT/session tokens on every route, ensuring IDOR prevention and configuring SAST scanners (Bandit).
@@ -164,6 +168,7 @@ This document is the **single source of truth** for tracking the progress, lifec
 *   **Completed**: -
 *   **Assignee**: @security-auditor
 *   **Route**: `skill({name:"security-audit"})` via `/sec`
+*   **Review from TSK-008**: auth uses PBKDF2-HMAC-SHA256/210k + opaque `secrets` tokens (stdlib, zero native deps; see `src/modules/auth/domain/security.py`). Decide here whether to mandate argon2id, add login rate-limiting, session expiry/revocation, and confirm the versioned hash format migration path.
 
 ---
 
