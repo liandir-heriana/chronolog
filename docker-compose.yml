@@ -1,0 +1,40 @@
+# ChronoLog local orchestration (TSK-012): backend app + isolated PostgreSQL.
+# Env isolation: copy `.env.example` to `.env` (git-ignored) and adjust values.
+# Compose v2 auto-loads `.env` from the project dir for ${...} interpolation,
+# so no `env_file:` is needed and `docker compose config` also validates
+# without a `.env` present (sane `:-` defaults below).
+services:
+  app:
+    build: .
+    container_name: chronolog-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-chronolog}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-chronolog}
+      POSTGRES_DB: ${POSTGRES_DB:-chronolog}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-chronolog}:${POSTGRES_PASSWORD:-chronolog}@postgres:5432/${POSTGRES_DB:-chronolog}
+    # NOTE (TSK-012): app does NOT connect to postgres yet — repository
+    # adapters land in TSK-014, Gradio server/ports in TSK-016.
+
+  postgres:
+    image: postgres:16
+    container_name: chronolog-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-chronolog}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-chronolog}
+      POSTGRES_DB: ${POSTGRES_DB:-chronolog}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-chronolog} -d ${POSTGRES_DB:-chronolog}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  pgdata:
+    name: chronolog-pgdata

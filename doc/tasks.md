@@ -5,11 +5,11 @@ This document is the **single source of truth** for tracking the progress, lifec
 ## Sprint Dashboard Overview
 
 *   **Project Phase**: Phase 1: Planning & Setup
-*   **Total Tasks**: 19
+*   **Total Tasks**: 20
 *   **Pending (Proposed)**: 7
 *   **In Progress**: 0
-*   **Completed**: 12
-*   **Current Progress**: 63.16% [██████░░░░]
+*   **Completed**: 13
+*   **Current Progress**: 65.00% [██████░░░░]
 
 ---
 
@@ -139,9 +139,18 @@ This document is the **single source of truth** for tracking the progress, lifec
 ### Phase 4: Infrastructure, Persistence & Containerization
 *Status: Pending*
 
-#### [ ] TSK-012: Local Docker Containerization Setup (Dockerfile & docker-compose.yml)
+#### [x] TSK-012: Local Docker Containerization Setup (Dockerfile & docker-compose.yml)
 *   **Description**: Create production-ready `Dockerfile` and `docker-compose.yml` orchestrating backend app and PostgreSQL database containers with local environment volume persistence.
 *   **Proposed**: 2026-09-15 02:50 (UTC)
+*   **Started**: 2026-09-16 11:58 (UTC)
+*   **Completed**: 2026-09-16 11:59 (UTC)
+*   **Assignee**: @devops-engineer
+*   **Route**: `skill({name:"devops-docker"})` via `/up`
+*   **Notes**: Artifacts: `Dockerfile` (python:3.12-slim, non-root appuser, honest CMD runs pytest suite — no Gradio server invented), `docker-compose.yml` (app + postgres:16, named volume chronolog-pgdata, pg_isready healthcheck, app depends_on healthy postgres, ${...:-} defaults so `config` validates without `.env`), `.env.example` (POSTGRES_USER/PASSWORD/DB placeholders, `changeme` only). Verified: pytest 114 passed (no .py changed, baseline held), compose YAML structure asserted via PyYAML (services/healthcheck/volume/depends_on), `.env` git-ignored (`git check-ignore` ok, no `.env` tracked/committed), `.env.example` holds placeholders only. BLOCKED-ON-ENV: `docker` binary absent (`which docker` empty) so `docker compose config` / `up --build` could NOT run — static verification at 75% (see `verify/task12_test.md` §6), live gate pending TSK-012.1. Service wiring (app actually connecting to postgres) belongs to TSK-014; server ports belong to TSK-016. Guide: `verify/task12_test.md`.
+
+#### [ ] TSK-012.1: Provision Docker Engine & Run Live Healthcheck Gate
+*   **Description**: On a Docker-capable host: `cp .env.example .env`, then `docker compose config`, `docker compose up --build -d`, `docker compose ps` (both services running), `pg_isready` exit 0, `docker compose down`. Clears the TSK-012 BLOCKED-ON-ENV live gate. Must complete before TSK-013/TSK-014 live validation.
+*   **Proposed**: 2026-09-16 12:00 (UTC)
 *   **Started**: -
 *   **Completed**: -
 *   **Assignee**: @devops-engineer
