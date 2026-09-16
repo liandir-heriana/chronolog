@@ -6,10 +6,10 @@ This document is the **single source of truth** for tracking the progress, lifec
 
 *   **Project Phase**: Phase 1: Planning & Setup
 *   **Total Tasks**: 20
-*   **Pending (Proposed)**: 7
+*   **Pending (Proposed)**: 6
 *   **In Progress**: 0
-*   **Completed**: 13
-*   **Current Progress**: 65.00% [██████░░░░]
+*   **Completed**: 14
+*   **Current Progress**: 70.00% [███████░░░]
 
 ---
 
@@ -148,13 +148,14 @@ This document is the **single source of truth** for tracking the progress, lifec
 *   **Route**: `skill({name:"devops-docker"})` via `/up`
 *   **Notes**: Artifacts: `Dockerfile` (python:3.12-slim, non-root appuser, honest CMD runs pytest suite — no Gradio server invented), `docker-compose.yml` (app + postgres:16, named volume chronolog-pgdata, pg_isready healthcheck, app depends_on healthy postgres, ${...:-} defaults so `config` validates without `.env`), `.env.example` (POSTGRES_USER/PASSWORD/DB placeholders, `changeme` only). Verified: pytest 114 passed (no .py changed, baseline held), compose YAML structure asserted via PyYAML (services/healthcheck/volume/depends_on), `.env` git-ignored (`git check-ignore` ok, no `.env` tracked/committed), `.env.example` holds placeholders only. BLOCKED-ON-ENV: `docker` binary absent (`which docker` empty) so `docker compose config` / `up --build` could NOT run — static verification at 75% (see `verify/task12_test.md` §6), live gate pending TSK-012.1. Service wiring (app actually connecting to postgres) belongs to TSK-014; server ports belong to TSK-016. Guide: `verify/task12_test.md`.
 
-#### [ ] TSK-012.1: Provision Docker Engine & Run Live Healthcheck Gate
+#### [x] TSK-012.1: Provision Docker Engine & Run Live Healthcheck Gate
 *   **Description**: On a Docker-capable host: `cp .env.example .env`, then `docker compose config`, `docker compose up --build -d`, `docker compose ps` (both services running), `pg_isready` exit 0, `docker compose down`. Clears the TSK-012 BLOCKED-ON-ENV live gate. Must complete before TSK-013/TSK-014 live validation.
 *   **Proposed**: 2026-09-16 12:00 (UTC)
-*   **Started**: -
-*   **Completed**: -
+*   **Started**: 2026-09-16 14:10 (UTC)
+*   **Completed**: 2026-09-16 14:18 (UTC)
 *   **Assignee**: @devops-engineer
 *   **Route**: `skill({name:"devops-docker"})` via `/up`
+*   **Notes**: Docker 29.8.0 + Compose 5.5.1 (daemon access via socket perms). `config` interpolates app+postgres; `up --build -d` green, postgres Healthy, `pg_isready` accepting connections, app ran suite 114 passed then exited by design (suite CMD), `whoami` = appuser, `down` clean. Live gate CLEARED.
 
 #### [ ] TSK-013: SQL Database Schema Design & Migration Scripts
 *   **Description**: Define relational SQL schema tables (`users`, `clients`, `appointments`, `session_notes`) using proper foreign keys, `user_id` indexes, and prepare migration scripts.
