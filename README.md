@@ -43,6 +43,24 @@ grep -rE "sqlalchemy|gradio|fastapi" src/modules/*/domain   # must return 0 matc
 
 Shortcuts when working in opencode: `/apply TSK-XXX`, `/verify`, `/sec`, `/up`, `/archive`.
 
+## Run the stack (Docker)
+
+```bash
+cp .env.example .env   # adjust values; .env is git-ignored, never commit it
+docker compose config  # sanity check interpolation
+docker compose up --build -d
+docker compose ps      # postgres must be Healthy
+docker compose down    # stop; add -v only to wipe the database volume
+```
+
+Notes:
+
+- The `app` container currently runs the test suite and then exits by design
+  (no server entrypoint yet — Gradio lands in TSK-016). A Healthy `postgres`
+  plus `114 passed` in the app logs is the expected green state.
+- If `docker` denies access to the daemon, the durable fix is
+  `sudo usermod -aG docker $USER` followed by a re-login.
+
 ## Project layout
 
 ```text
