@@ -6,10 +6,10 @@ This document is the **single source of truth** for tracking the progress, lifec
 
 *   **Project Phase**: Phase 1: Planning & Setup
 *   **Total Tasks**: 19
-*   **Pending (Proposed)**: 12
+*   **Pending (Proposed)**: 11
 *   **In Progress**: 0
-*   **Completed**: 7
-*   **Current Progress**: 36.84% [████░░░░░░]
+*   **Completed**: 8
+*   **Current Progress**: 42.11% [████░░░░░░]
 
 ---
 
@@ -82,13 +82,14 @@ This document is the **single source of truth** for tracking the progress, lifec
 *   **Route**: `skill({name:"sdd-apply"})` via `/apply TSK-006`
 *   **Notes**: RED test first (14 tests, failed on collection), GREEN pure domain `src/modules/appointments/domain/` (entities, value_objects, exceptions, stdlib only). Rules: explicit `now` in `schedule()` for testability, tz-aware datetimes, SCHEDULED->COMPLETED/CANCELLED transitions, notes attach/edit only when COMPLETED and bound to same appointment. Verify: pytest 40 passed, cov 97.38%, ruff/mypy/bandit clean, boundary grep 0 matches. Docker N/A (deferred to TSK-012).
 
-#### [ ] TSK-007: Define Domain Repository Ports (Interfaces)
+#### [x] TSK-007: Define Domain Repository Ports (Interfaces)
 *   **Description**: Design abstract classes (ports) `IClientRepository` and `IAppointmentRepository` in the domain layer, isolating core business domain code from database dependencies.
 *   **Proposed**: 2026-09-07 11:57 (UTC)
-*   **Started**: -
-*   **Completed**: -
+*   **Started**: 2026-09-16 10:44 (UTC)
+*   **Completed**: 2026-09-16 10:45 (UTC)
 *   **Assignee**: @backend-dev
 *   **Route**: `skill({name:"sdd-apply"})` via `/apply TSK-007`
+*   **Notes**: RED test first (11 tests, failed on collection with ModuleNotFoundError), GREEN pure domain ports `src/modules/clients/domain/repository_interfaces.py` (IClientRepository: save/find_by_id_and_user_id/list_by_user_id) + `src/modules/appointments/domain/repository_interfaces.py` (IAppointmentRepository: save/find_by_id_and_user_id/list_by_user_id/list_by_client_and_user_id/list_overlapping), exported from domain `__init__.py`, stdlib+domain only. Every read scoped by user_id (IDOR prevention), overlap lookup supports exclude_appointment_id. Verify: pytest 51 passed, cov 94.30%, ruff/mypy/bandit clean, boundary grep 0 matches. Docker N/A (pure domain, deferred to TSK-012/014).
 
 ---
 

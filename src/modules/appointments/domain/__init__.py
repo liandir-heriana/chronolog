@@ -6,6 +6,9 @@ from src.modules.appointments.domain.entities import (
     SessionNotes,
 )
 from src.modules.appointments.domain.exceptions import AppointmentValidationError
+from src.modules.appointments.domain.repository_interfaces import (
+    IAppointmentRepository,
+)
 from src.modules.appointments.domain.value_objects import AppointmentId, SessionNoteId
 
 __all__ = [
@@ -13,6 +16,7 @@ __all__ = [
     "AppointmentId",
     "AppointmentStatus",
     "AppointmentValidationError",
+    "IAppointmentRepository",
     "SessionNoteId",
     "SessionNotes",
 ]
