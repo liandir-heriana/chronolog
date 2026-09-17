@@ -120,6 +120,19 @@ PGHOST=172.18.0.2 .venv/bin/python -m pytest tests/ -q --cov=src --cov-fail-unde
 TOTAL 608 stmts, 45 miss → 92.60% (required 85% reached)
 ```
 
+Post-fix re-verification (loopback publish, no `PGHOST`, 2026-09-17):
+
+```text
+unset PGHOST
+docker compose up -d postgres   # now publishes 127.0.0.1:5432
+.venv/bin/python -m pytest tests/modules/*/infrastructure/ -q
+12 passed in ~2s (zero skips)
+.venv/bin/python -m pytest tests/ -q --cov=src --cov-fail-under=85
+126 passed, 92.60% — 0 skipped
+ss -ltn → 127.0.0.1:5432 (loopback only, nothing toward the LAN)
+docker compose down             # without -v, volume kept
+```
+
 Teardown: `docker compose down` (without `-v`, volume kept).
 
 No secrets logged: DSNs/passwords never printed; `.env` (git-ignored) only read
@@ -131,7 +144,7 @@ via the test `_load_dotenv()` helper; `git status` shows no `.env` tracked.
 
 | Gate | Command | Result |
 |---|---|---|
-| pytest + cov | `PGHOST=172.18.0.2 .venv/bin/python -m pytest tests/ -q --cov=src --cov-fail-under=85` | 126 passed, 92.60% (≥85) |
+| pytest + cov | `PGHOST=172.18.0.2 .venv/bin/python -m pytest tests/ -q --cov=src --cov-fail-under=85` (pre-fix; post-fix runs with no `PGHOST` via loopback publish — same result) | 126 passed, 92.60% (≥85) |
 | ruff | `.venv/bin/python -m ruff check src tests` | clean (16 SIM117/I001 auto-fixed via `--fix`, re-verified green) |
 | mypy | `.venv/bin/python -m mypy src` | `Success: no issues found in 37 source files` |
 | bandit | `.venv/bin/python -m bandit -r src -q` | exit 0, no findings (B608 clean — parameterized only) |
@@ -166,4 +179,4 @@ live against postgres:16 with all DoD gates green.
 | Transaction scope | Port `save()` only vs port + new port methods vs adapter-local helper | Port `save()` persists the appointment row; adapter-local `save_with_notes(appt, notes)` persists appointment + `session_notes` in ONE `with connect():` transaction; `find_notes_by_appointment_and_user_id` reads notes user-scoped | Honors T10-D1 (no new port methods — `CompleteAppointment` validates via `attach_notes` and saves the aggregate) while still exercising the V002 `session_notes` table atomically (single commit/rollback, ownership pre-checked, `updated_at=now()` on conflict). |
 | T7-D4 outcome | Add `delete_by_id_and_user_id` now vs defer | Deferred (NOT implemented) | No MUST use-case requires delete; adding it without a RED cycle from a consumer would be scope creep. Port surface unchanged; upserts are ownership-guarded so no delete-shaped IDOR is introduced. |
 | Error model (D3) | Granular exceptions vs unified `*ValidationError` | Kept unified `AppointmentValidationError` / `ClientValidationError` / `UserValidationError` (incl. corrupt-row wrapping) | Matches TSK-007/009/010 audit stance (no oracle, no enumeration); mapping layers re-raise domain errors as-is and wrap only non-domain shapes. |
-| Host DB access | Publish postgres ports in compose vs bridge-IP via `PGHOST` | Bridge-IP (`PGHOST=172.18.0.2`) for this task only, no compose change | `docker-compose.yml` intentionally publishes no ports (MVP surface); changing it would be out-of-scope infra creep. Tests default to `localhost` but honor `PGHOST`/`TEST_DATABASE_URL`, so CI/Docker paths stay compatible. |
+| Host DB access | Publish postgres ports in compose vs bridge-IP via `PGHOST` | Bridge-IP for this task, SUPERSEDED post-task by loopback publish (`127.0.0.1:5432:5432`; tests still honor `PGHOST` as fallback) | Original no-ports stance was MVP surface minimalism; loopback publish keeps that (LAN-invisible) while removing the silent-skip footgun — verified 12/12 with no `PGHOST`. |
