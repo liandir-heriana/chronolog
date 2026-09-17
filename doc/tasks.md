@@ -6,10 +6,10 @@ This document is the **single source of truth** for tracking the progress, lifec
 
 *   **Project Phase**: Phase 1: Planning & Setup
 *   **Total Tasks**: 20
-*   **Pending (Proposed)**: 4
+*   **Pending (Proposed)**: 3
 *   **In Progress**: 0
-*   **Completed**: 16
-*   **Current Progress**: 80.00% [████████░░]
+*   **Completed**: 17
+*   **Current Progress**: 85.00% [████████▌░]
 
 ---
 
@@ -176,14 +176,15 @@ This document is the **single source of truth** for tracking the progress, lifec
 *   **Review from TSK-007**: `delete_by_id_and_user_id` was deferred (T7-D4, no delete in MUST) — add it with its own RED cycle only if a use-case requires it; keep the unified `AppointmentValidationError`/`ClientValidationError` unless the audit mandates granular exceptions (D3).
 *   **Notes**: RED test first (3 live files, failed collection with ModuleNotFoundError), GREEN `src/modules/*/infrastructure/persistence/postgres_repository.py` (PostgresUser/Client/AppointmentRepository, psycopg2-binary 2.9.13 — wheels bundle libpq, NO sqlalchemy, raw %s-only SQL; every read WHERE user_id; overlap `starts_at < %s AND %s < ends_at`; appointment+notes in ONE txn via adapter-local save_with_notes per T10-D1, port frozen; corrupt rows -> domain errors). T7-D4 honored (no delete), D3 kept (unified errors). Verify: 12 live passed (PGHOST bridge-IP, postgres Healthy) + full 126 passed, cov 92.60%, ruff/mypy/bandit clean, boundary 0, compose config ok, `down` clean (no -v). Guide: `verify/task14_test.md`.
 
-#### [ ] TSK-015: Configure Server-Side AuthN/AuthZ Middleware & Security Scans
+#### [x] TSK-015: Configure Server-Side AuthN/AuthZ Middleware & Security Scans
 *   **Description**: Implement HTTP authentication/authorization middleware verifying JWT/session tokens on every route, ensuring IDOR prevention and configuring SAST scanners (Bandit).
 *   **Proposed**: 2026-09-07 11:57 (UTC)
-*   **Started**: -
-*   **Completed**: -
+*   **Started**: 2026-09-17 08:28 (UTC)
+*   **Completed**: 2026-09-17 08:30 (UTC)
 *   **Assignee**: @security-auditor
 *   **Route**: `skill({name:"security-audit"})` via `/sec`
 *   **Review from TSK-008**: auth uses PBKDF2-HMAC-SHA256/210k + opaque `secrets` tokens (stdlib, zero native deps; see `src/modules/auth/domain/security.py`). Decide here whether to mandate argon2id, add login rate-limiting, session expiry/revocation, and confirm the versioned hash format migration path.
+*   **Notes**: SCOPE HONESTY: no HTTP server/routes exist (Gradio lands in TSK-016) — no middleware invented; realizable scope audited 100% (read-only, zero src edits). AuthZ: every port read scoped by user_id (sole justified exception: pre-auth `find_by_email`); 7/7 tenant SELECTs `WHERE user_id`, 4/4 upserts ownership-guarded; no `find_by_id` w/o user_id; 13/13 `cur.execute` %s-only (no f-string SQL). Scans: bandit 0 results/0 errors over 1132 LOC (nosec: 0), no secrets (only $VAR refs + column names), `.env` untracked+ignored, `.env.example` placeholders, Dockerfile `USER appuser` + no EXPOSE, postgres loopback-only `127.0.0.1:5432`, venv free of argon2/bcrypt/jwt/web-fw/ORM. Verdicts: (D1) KEEP PBKDF2/210k, versioned `$`-format preserves argon2id path; (D2) rate-limiting PARKED to TSK-016; (D3) MANDATED `expires_at` + sessions table/port/middleware — ACCEPTED-PENDING-IMPLEMENTATION (sessions currently in-memory only: unexpirable/irrevocable — top finding); (D4) KEEP unified errors (no oracle); (D5) KEEP app-level overlap, GiST rejected (no drift); (D6) `users.save` lost-race type ACCEPTED RISK (`UNIQUE(email)` holds). Verify: 126 passed, cov 92.60%, ruff/mypy/bandit clean, boundary 0, compose up Healthy -> `down` clean (no -v). Guide: `verify/task15_test.md` (incl. RED tests for D3/D2).
 
 ---
 
@@ -197,6 +198,7 @@ This document is the **single source of truth** for tracking the progress, lifec
 *   **Completed**: -
 *   **Assignee**: @frontend-dev
 *   **Route**: `skill({name:"ui-integration"})`
+*   **Security debt from TSK-015 (mandatory)**: implement D3 (`expires_at` on `AuthSession` + sessions persistence + middleware expiry check) and D2 (login throttling that preserves the generic `InvalidCredentialsError`) using the RED tests in `verify/task15_test.md` §3.2 as GREEN targets. Sessions must not ship over HTTP without expiry.
 
 #### [ ] TSK-017: Connect UI Forms to Application Use Cases
 *   **Description**: Wire Gradio inputs (text fields, date pickers, dropdowns) directly into Hexagonal Core backend Use Cases with authenticated user context.
