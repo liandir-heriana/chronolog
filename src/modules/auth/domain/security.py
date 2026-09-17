@@ -56,3 +56,13 @@ def verify_password(password: str, password_hash: str) -> bool:
 def generate_token() -> str:
     """Generate an opaque random session token (no identity data inside)."""
     return secrets.token_urlsafe(32)
+
+
+def hash_token(token: str) -> str:
+    """Return the ``sha256`` hex digest of a session ``token``.
+
+    TSK-016 (D3): the ``sessions`` table stores only this hash (PK
+    ``token_hash``), never the raw bearer token — a DB leak alone cannot
+    impersonate. Lookup hashes the presented token with the same function.
+    """
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()

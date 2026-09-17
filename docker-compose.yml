@@ -15,8 +15,12 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-chronolog}
       POSTGRES_DB: ${POSTGRES_DB:-chronolog}
       DATABASE_URL: postgresql://${POSTGRES_USER:-chronolog}:${POSTGRES_PASSWORD:-chronolog}@postgres:5432/${POSTGRES_DB:-chronolog}
-    # NOTE (TSK-012): app does NOT connect to postgres yet — repository
-    # adapters land in TSK-014, Gradio server/ports in TSK-016.
+      GRADIO_PORT: 7860
+    # TSK-016: Gradio dashboard. Loopback-bound like postgres (local-dev only,
+    # LAN-invisible, consistent with the TSK-015 F7 postgres decision) so
+    # `curl localhost:7860` works without exposing the dev server to the LAN.
+    ports:
+      - "127.0.0.1:7860:7860"
 
   postgres:
     image: postgres:16
