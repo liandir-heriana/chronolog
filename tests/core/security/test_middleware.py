@@ -79,9 +79,13 @@ def test_unknown_or_missing_token_raises_generic_error(header: str | None) -> No
 
 
 def test_expired_token_rejected_with_generic_error() -> None:
+    # NOTE (TSK-017 drive-by): was wall-clock flaky — `issue()` stamps real
+    # `now()`, but the check pinned fixed NOW=09:55, so once real time passed
+    # ~10:55 the token no longer looked expired at NOW. Default (real) `now`
+    # keeps the intent deterministic: a -1h TTL is always expired on arrival.
     token, repo = _stored("user-1", ttl_hours=-1)
     with pytest.raises(InvalidCredentialsError):
-        authenticate_request(f"Bearer {token}", repo, now=NOW)
+        authenticate_request(f"Bearer {token}", repo)
 
 
 def test_token_expiring_between_issue_and_request_rejected() -> None:
