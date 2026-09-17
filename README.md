@@ -41,6 +41,16 @@ grep -rE "sqlalchemy|gradio|fastapi" src/modules/*/domain   # must return 0 matc
 .venv/bin/bandit -r src -q
 ```
 
+Live postgres integration tests are skipped unless the DB is reachable
+(compose publishes no postgres port, so point at the container IP):
+
+```bash
+docker compose up -d postgres && sleep 5
+export PGHOST=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' chronolog-postgres)
+.venv/bin/python -m pytest tests/ -q --cov=src --cov-fail-under=85
+docker compose down   # without -v, keeps the volume
+```
+
 Shortcuts when working in opencode: `/apply TSK-XXX`, `/verify`, `/sec`, `/up`, `/archive`.
 
 ## Run the stack (Docker)

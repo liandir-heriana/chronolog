@@ -10,10 +10,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Test tooling only: src/ itself is stdlib-only (no runtime deps yet).
-# Runtime deps (sqlalchemy/psycopg2/gradio) get installed here in TSK-014/016.
+# Runtime deps: psycopg2-binary for TSK-014 Postgres adapters (wheels bundle
+# libpq, no system build deps); no sqlalchemy — raw parameterized SQL keeps
+# the adapters thin and auditable (see verify/task14_test.md decision table).
 COPY pyproject.toml README.md ./
-RUN pip install --no-cache-dir pytest pytest-cov
+RUN pip install --no-cache-dir pytest pytest-cov psycopg2-binary
 
 COPY src/ ./src/
 COPY tests/ ./tests/

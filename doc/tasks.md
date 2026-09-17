@@ -6,10 +6,10 @@ This document is the **single source of truth** for tracking the progress, lifec
 
 *   **Project Phase**: Phase 1: Planning & Setup
 *   **Total Tasks**: 20
-*   **Pending (Proposed)**: 5
+*   **Pending (Proposed)**: 4
 *   **In Progress**: 0
-*   **Completed**: 15
-*   **Current Progress**: 75.00% [███████▌░░]
+*   **Completed**: 16
+*   **Current Progress**: 80.00% [████████░░]
 
 ---
 
@@ -166,14 +166,15 @@ This document is the **single source of truth** for tracking the progress, lifec
 *   **Route**: `skill({name:"devops-docker"})`
 *   **Notes**: Artifacts: `db/migrations/V001__users_clients.sql` + `V002__appointments_session_notes.sql` (FK-ordered, `IF NOT EXISTS` idempotent, zero extensions) + `db/README.md` manifest. Schema mirrors domain VOs (native UUID PKs; lowercase status CHECK = AppointmentStatus; content guard 1..5000). Decisions: separate `session_notes` table w/ UNIQUE(appointment_id) 1:1 per T10-D1 (logical aggregate, physical 2-table txn in TSK-014); NO GiST exclusion — overlap stays in ScheduleAppointment/list_overlapping (no dual-enforcement drift); no UNIQUE(user_id,email); full CASCADE wipe chain. Live on postgres:16: apply exit 0, re-apply exit 0 (NOTICEs), 5 FKs + user_id indexes verified in catalog, round-trip user->client(+NULL phone)->appointment(default scheduled->completed)->notes->JOIN ok, 5/5 negatives rejected (2xFK, window/status CHECKs, notes UNIQUE), cascade DELETE leaves 0 rows, `down` clean (no -v). No secrets in db/ (only $VAR refs), .env untouched/ignored. Pytest baseline 114 passed (no .py changed). Guide: `verify/task13_test.md`.
 
-#### [ ] TSK-014: Implement Postgres Database Repositories (Adapters)
+#### [x] TSK-014: Implement Postgres Database Repositories (Adapters)
 *   **Description**: Write concrete repository implementations (adapters) that fulfill `IClientRepository` and `IAppointmentRepository` interfaces with user-level isolation using SQLAlchemy or psycopg2.
 *   **Proposed**: 2026-09-07 11:57 (UTC)
-*   **Started**: -
-*   **Completed**: -
+*   **Started**: 2026-09-17 07:33 (UTC)
+*   **Completed**: 2026-09-17 07:39 (UTC)
 *   **Assignee**: @backend-dev
 *   **Route**: `skill({name:"sdd-apply"})` + `skill({name:"security-audit"})`
 *   **Review from TSK-007**: `delete_by_id_and_user_id` was deferred (T7-D4, no delete in MUST) — add it with its own RED cycle only if a use-case requires it; keep the unified `AppointmentValidationError`/`ClientValidationError` unless the audit mandates granular exceptions (D3).
+*   **Notes**: RED test first (3 live files, failed collection with ModuleNotFoundError), GREEN `src/modules/*/infrastructure/persistence/postgres_repository.py` (PostgresUser/Client/AppointmentRepository, psycopg2-binary 2.9.13 — wheels bundle libpq, NO sqlalchemy, raw %s-only SQL; every read WHERE user_id; overlap `starts_at < %s AND %s < ends_at`; appointment+notes in ONE txn via adapter-local save_with_notes per T10-D1, port frozen; corrupt rows -> domain errors). T7-D4 honored (no delete), D3 kept (unified errors). Verify: 12 live passed (PGHOST bridge-IP, postgres Healthy) + full 126 passed, cov 92.60%, ruff/mypy/bandit clean, boundary 0, compose config ok, `down` clean (no -v). Guide: `verify/task14_test.md`.
 
 #### [ ] TSK-015: Configure Server-Side AuthN/AuthZ Middleware & Security Scans
 *   **Description**: Implement HTTP authentication/authorization middleware verifying JWT/session tokens on every route, ensuring IDOR prevention and configuring SAST scanners (Bandit).
