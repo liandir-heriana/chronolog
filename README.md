@@ -67,9 +67,13 @@ docker compose down    # stop; add -v only to wipe the database volume
 
 Notes:
 
-- The `app` container currently runs the test suite and then exits by design
-  (no server entrypoint yet — Gradio lands in TSK-016). A Healthy `postgres`
-  plus `114 passed` in the app logs is the expected green state.
+- The `app` container serves the Gradio dashboard on `:7860` (composition
+  root `src/main.py` ensures `V001+V002+V003` then launches
+  `0.0.0.0:7860`; compose publishes it on loopback `127.0.0.1:7860`,
+  LAN-invisible like postgres). Open `http://localhost:7860`, register,
+  log in, then use the Clients / Scheduler / History tabs.
+- A Healthy `postgres` plus `* Running on local URL: http://0.0.0.0:7860`
+  in the app logs is the expected green state (`curl localhost:7860` → 200).
 - If `docker` denies access to the daemon, the durable fix is
   `sudo usermod -aG docker $USER` followed by a re-login.
 

@@ -9,6 +9,7 @@ Plain versioned SQL files applied in order with `psql`. No migration framework
 |---|---|---|
 | `migrations/V001__users_clients.sql` | `users`, `clients` + `idx_clients_user_id` | — (base) |
 | `migrations/V002__appointments_session_notes.sql` | `appointments`, `session_notes` + 3 indexes | V001 (FKs into `users`/`clients`) |
+| `migrations/V003__sessions.sql` | `sessions` (`token_hash` PK, `user_id` FK, `expires_at`) + 2 indexes | V001 (FK into `users`) |
 
 All statements are idempotent (`CREATE TABLE IF NOT EXISTS`,
 `CREATE INDEX IF NOT EXISTS`): re-applying yields zero errors.
