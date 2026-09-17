@@ -41,6 +41,18 @@ grep -rE "sqlalchemy|gradio|fastapi" src/modules/*/domain   # must return 0 matc
 .venv/bin/bandit -r src -q
 ```
 
+Live postgres integration tests need a reachable DB. Compose publishes
+postgres on loopback (`127.0.0.1:5432`, LAN-invisible), so the default
+`localhost` just works:
+
+```bash
+docker compose up -d postgres && sleep 5
+.venv/bin/python -m pytest tests/ -q --cov=src --cov-fail-under=85
+docker compose down   # without -v, keeps the volume
+```
+
+(Fallback: tests also honor `PGHOST`/`PGPORT` if you point them at another server.)
+
 Shortcuts when working in opencode: `/apply TSK-XXX`, `/verify`, `/sec`, `/up`, `/archive`.
 
 ## Run the stack (Docker)
