@@ -6,10 +6,10 @@ This document is the **single source of truth** for tracking the progress, lifec
 
 *   **Project Phase**: Phase 1: Planning & Setup
 *   **Total Tasks**: 20
-*   **Pending (Proposed)**: 2
+*   **Pending (Proposed)**: 1
 *   **In Progress**: 0
-*   **Completed**: 18
-*   **Current Progress**: 90.00% [█████████░]
+*   **Completed**: 19
+*   **Current Progress**: 95.00% [█████████░]
 
 ---
 
@@ -201,13 +201,14 @@ This document is the **single source of truth** for tracking the progress, lifec
 *   **Security debt from TSK-015 (mandatory)**: implement D3 (`expires_at` on `AuthSession` + sessions persistence + middleware expiry check) and D2 (login throttling that preserves the generic `InvalidCredentialsError`) using the RED tests in `verify/task15_test.md` §3.2 as GREEN targets. Sessions must not ship over HTTP without expiry.
 *   **Notes**: GREEN: D3 (`expires_at`/`issue(ttl)`/`is_expired` + V003 sessions + `ISessionRepository` + postgres adapter + middleware, hash-not-token) + D2 (per-email+per-IP limiter, generic error) + NEW `RegisterClient` (MUST gap, RED-first) + Gradio dashboard (Login/Register, Clients/Scheduler/History tabs, `ctx.user_id` on every action) + composition (`ensure_schema` V001-3, `build_context`) + `src/main.py` (`0.0.0.0:7860`). Gradio 6.27.0 installed (+Dockerfile). Verify: RED 5 failed+4 collection errors; live pytest 181 passed, cov 90.64%; ruff/mypy clean; bandit 0 high/critical (B104/B106 non-criticals accepted); boundary domain+use-cases 0, gradio only presentation; compose `up --build` green, curl :7860 200, 10-step live smoke green (register/login/hash/client/schedule/notes/expired-rejected/logout/throttle), loopback-only ports, `down` clean (no -v). D3/D2 closure evidence in `verify/task16_test.md` (§3 smoke 1-10, §4 gates). Stub deviations (distinct error types, 24h TTL) rejected per D2/D4. Guide: `verify/task16_test.md`.
 
-#### [ ] TSK-017: Connect UI Forms to Application Use Cases
+#### [x] TSK-017: Connect UI Forms to Application Use Cases
 *   **Description**: Wire Gradio inputs (text fields, date pickers, dropdowns) directly into Hexagonal Core backend Use Cases with authenticated user context.
 *   **Proposed**: 2026-09-07 11:57 (UTC)
-*   **Started**: -
-*   **Completed**: -
+*   **Started**: 2026-09-17 10:43 (UTC)
+*   **Completed**: 2026-09-17 11:25 (UTC)
 *   **Assignee**: @frontend-dev
 *   **Route**: `skill({name:"ui-integration"})`
+*   **Notes**: DEPTH audit (not rebuild): wiring complete, found 3 None-input traceback leaks + 2 UX gaps. RED 5 failed (AttributeError), GREEN `src/presentation/app.py` only (None normalization `or ""` + `(ValueError,TypeError,AttributeError)` catches; save->2/schedule->2/complete->4/logout->10 auto-refresh wiring; zero domain/use-case changes). New `tests/presentation/test_none_hardening.py` (6 tests). Drive-by: fixed wall-clock-flaky `test_expired_token_rejected_with_generic_error` (pinned NOW vs real issue time, test-only 1-line fix). Verify: 187 passed, cov 89.27%, ruff/mypy clean, bandit 0 high/critical (B104/B106 accepted), boundary 0, compose `up --build` + curl 200 + smoke17 38/38 (every tab incl. error paths/expiry/logout/cross-user, no tracebacks, loopback-only) + `down` clean (no -v). Guide: `verify/task17_test.md`.
 
 ---
 

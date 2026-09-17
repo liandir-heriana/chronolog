@@ -67,15 +67,15 @@ class UIDeps:
 def handle_register(email: str, password: str, deps: UIDeps) -> str:
     """Register an account; user logs in separately (explicit step)."""
     try:
-        user = deps.register_user.execute(email=email, password=password)
-    except ValueError as exc:
+        user = deps.register_user.execute(email=email or "", password=password or "")
+    except (ValueError, TypeError, AttributeError) as exc:
         return f"Register failed: {exc}"
     return f"Registered {user.email.value}. Please log in."
 
 
-def _throttle_keys(email: str, client_ip: str) -> tuple[str, str]:
-    normalized = email.strip().lower()
-    ip = client_ip.strip() or "unknown"
+def _throttle_keys(email: str | None, client_ip: str | None) -> tuple[str, str]:
+    normalized = (email or "").strip().lower()
+    ip = (client_ip or "").strip() or "unknown"
     return f"email:{normalized}", f"ip:{ip}"
 
 
@@ -94,8 +94,10 @@ def handle_login(
     except InvalidCredentialsError:
         return (InvalidCredentialsError.GENERIC_MESSAGE, "", "")
     try:
-        session = deps.authenticate_user.execute(email=email, password=password)
-    except InvalidCredentialsError:
+        session = deps.authenticate_user.execute(
+            email=email or "", password=password or ""
+        )
+    except (InvalidCredentialsError, TypeError, AttributeError):
         deps.limiter.record_failure(email_key, now=now)
         deps.limiter.record_failure(ip_key, now=now)
         return (InvalidCredentialsError.GENERIC_MESSAGE, "", "")
@@ -128,9 +130,12 @@ def handle_create_client(
         return "Please log in first."
     try:
         client = deps.register_client.execute(
-            user_id=ctx.user_id, name=name, email=email, phone=phone or None
+            user_id=ctx.user_id,
+            name=name or "",
+            email=email or "",
+            phone=phone or None,
         )
-    except ValueError as exc:
+    except (ValueError, TypeError, AttributeError) as exc:
         return f"Client registration failed: {exc}"
     return f"Client saved: {client.id.value} ({client.name})"
 
@@ -153,8 +158,8 @@ def handle_list_clients(token: str, deps: UIDeps) -> str:
     return "\n".join(lines)
 
 
-def _parse_moment(raw: str, label: str) -> datetime:
-    text = raw.strip()
+def _parse_moment(raw: str | None, label: str) -> datetime:
+    text = (raw or "").strip()
     for fmt in ("%Y-%m-%d %H:%M", "%Y-%m-%dT%H:%M", "%Y-%m-%d"):
         try:
             moment = datetime.strptime(text, fmt)  # noqa: DTZ007 — UTC attached below
@@ -188,12 +193,12 @@ def handle_schedule(
         ends_at = _parse_moment(ends_raw, "ends_at")
         appt = deps.schedule_appointment.execute(
             user_id=ctx.user_id,
-            client_id=client_id.strip(),
+            client_id=(client_id or "").strip(),
             starts_at=starts_at,
             ends_at=ends_at,
             now=datetime.now(UTC),
         )
-    except ValueError as exc:
+    except (ValueError, TypeError, AttributeError) as exc:
         return f"Scheduling failed: {exc}"
     return f"Scheduled: {appt.id.value} [{appt.starts_at:%Y-%m-%d %H:%M} UTC]"
 
@@ -243,9 +248,9 @@ def handle_history(token: str, client_id: str, deps: UIDeps) -> tuple[str, str]:
         return ("Please log in first.", "")
     try:
         history = deps.get_history.execute(
-            user_id=ctx.user_id, client_id=client_id.strip()
+            user_id=ctx.user_id, client_id=(client_id or "").strip()
         )
-    except ValueError as exc:
+    except (ValueError, TypeError, AttributeError) as exc:
         return (f"History failed: {exc}", "")
     header = (
         f"{history.client.name} <{history.client.email.value}> "
@@ -282,24 +287,25 @@ def handle_complete(
         ctx = _require_ctx(token, deps)
     except InvalidCredentialsError:
         return "Please log in first."
+    content_text = content or ""
     try:
         result = deps.complete_appointment.execute(
-            appointment_id=appointment_id.strip(),
+            appointment_id=(appointment_id or "").strip(),
             user_id=ctx.user_id,
-            content=content,
+            content=content_text,
         )
-    except ValueError as exc:
+    except (ValueError, TypeError, AttributeError) as exc:
         return f"Complete failed: {exc}"
     saver: Callable[..., Any] | None = getattr(
         deps.appointments_repo, "save_with_notes", None
     )
     if callable(saver):
         try:
-            notes = result.attach_notes(content)
+            notes = result.attach_notes(content_text)
             saver(result, notes)
-        except ValueError as exc:  # validated once already; defensive only
+        except (ValueError, TypeError, AttributeError) as exc:  # defensive only
             return f"Complete failed: {exc}"
-    return f"Completed {result.id.value} with notes ({len(content.strip())} chars)."
+    return f"Completed {result.id.value} with notes ({len(content_text.strip())} chars)."
 
 
 # ---------------------------------------------------------------------------
@@ -330,20 +336,71 @@ def build_demo(deps: UIDeps) -> gr.Blocks:
         def _register(email_v: str, password_v: str) -> str:
             return handle_register(email_v, password_v, deps)
 
-        def _logout(token_v: str) -> tuple[str, str, str]:
-            return handle_logout(token_v, deps)
+        def _logout_and_clear(
+            token_v: str,
+        ) -> tuple[str, str, str, str, str, str, str, str, str, str]:
+            """Revoke the session and clear every data view (no stale rows)."""
+            status, cleared, label = handle_logout(token_v, deps)
+            return (
+                status,
+                cleared,
+                label,
+                "",
+                "(no clients yet)",
+                "",
+                "(no appointments yet)",
+                "",
+                "",
+                "",
+            )
+
+        def _save_client_and_refresh(
+            t: str, n: str, e: str, p: str
+        ) -> tuple[str, str]:
+            """Register then immediately refresh the client list (TSK-017)."""
+            status = handle_create_client(t, n, e, p, deps)
+            return status, handle_list_clients(t, deps)
+
+        def _schedule_and_refresh(
+            t: str, c: str, s: str, e: str
+        ) -> tuple[str, str]:
+            """Schedule then immediately refresh the appointment list."""
+            status = handle_schedule(t, c, s, e, deps)
+            return status, handle_list_appointments(t, deps)
+
+        def _complete_and_refresh(
+            t: str, a: str, c: str
+        ) -> tuple[str, str, str, str]:
+            """Complete, then refresh status list + history (best-effort)."""
+            status = handle_complete(t, a, c, deps)
+            sched_view = handle_list_appointments(t, deps)
+            try:
+                ctx = _require_ctx(t, deps)
+                from src.modules.appointments.domain.value_objects import (
+                    AppointmentId,
+                )
+
+                appt = deps.appointments_repo.find_by_id_and_user_id(
+                    AppointmentId((a or "").strip()), ctx.user_id
+                )
+                if appt is not None:
+                    hist_summary, hist_notes = handle_history(
+                        t, appt.client_id, deps
+                    )
+                else:
+                    hist_summary, hist_notes = "", ""
+            except (ValueError, TypeError, AttributeError):
+                hist_summary, hist_notes = "", ""
+            return status, sched_view, hist_summary, hist_notes
 
         login_btn.click(
             _login, inputs=[email, password], outputs=[auth_status, token_state, user_label]
         )
         register_btn.click(_register, inputs=[email, password], outputs=[auth_status])
-        logout_btn.click(
-            _logout, inputs=[token_state], outputs=[auth_status, token_state, user_label]
-        )
 
         with gr.Tabs():
             with gr.Tab("Clients"):
-                gr.Markdown("Register a client profile, then refresh the list.")
+                gr.Markdown("Register a client profile — the list refreshes automatically.")
                 name = gr.Textbox(label="Full name", placeholder="Alice Smith")
                 client_email = gr.Textbox(
                     label="Client email", placeholder="alice@example.com"
@@ -359,9 +416,9 @@ def build_demo(deps: UIDeps) -> gr.Blocks:
                     label="My clients (id | name | email | phone)", interactive=False
                 )
                 client_save.click(
-                    lambda t, n, e, p: handle_create_client(t, n, e, p, deps),
+                    _save_client_and_refresh,
                     inputs=[token_state, name, client_email, phone],
-                    outputs=[client_status],
+                    outputs=[client_status, client_list],
                 )
                 client_refresh.click(
                     lambda t: handle_list_clients(t, deps),
@@ -387,9 +444,9 @@ def build_demo(deps: UIDeps) -> gr.Blocks:
                     interactive=False,
                 )
                 sched_btn.click(
-                    lambda t, c, s, e: handle_schedule(t, c, s, e, deps),
+                    _schedule_and_refresh,
                     inputs=[token_state, sched_client, starts, ends],
-                    outputs=[sched_status],
+                    outputs=[sched_status, sched_list],
                 )
                 sched_refresh.click(
                     lambda t: handle_list_appointments(t, deps),
@@ -415,8 +472,31 @@ def build_demo(deps: UIDeps) -> gr.Blocks:
                 complete_btn = gr.Button("Complete with notes")
                 complete_status = gr.Textbox(label="Result", interactive=False)
                 complete_btn.click(
-                    lambda t, a, c: handle_complete(t, a, c, deps),
+                    _complete_and_refresh,
                     inputs=[token_state, complete_appt, complete_notes],
-                    outputs=[complete_status],
+                    outputs=[
+                        complete_status,
+                        sched_list,
+                        hist_summary,
+                        hist_notes,
+                    ],
                 )
+        # Logout last: clears the session AND every data view so the next
+        # user never sees stale rows (all components exist by now).
+        logout_btn.click(
+            _logout_and_clear,
+            inputs=[token_state],
+            outputs=[
+                auth_status,
+                token_state,
+                user_label,
+                client_status,
+                client_list,
+                sched_status,
+                sched_list,
+                hist_summary,
+                hist_notes,
+                complete_status,
+            ],
+        )
     return demo
