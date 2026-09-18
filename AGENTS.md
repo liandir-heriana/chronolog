@@ -30,7 +30,8 @@ Future options (valid post-MVP, out of MUST): v0, Lovable, Supabase, Vercel, clo
 | Scope, PRD, MoSCoW | `@po-analyst` | `skill({name:"sdd-spec"})` |
 | Domain, entities, use-cases TSK-005..011 | `@backend-dev` | `skill({name:"sdd-apply"})` |
 | Gradio forms, wiring TSK-016..017 | `@frontend-dev` | `skill({name:"ui-integration"})` |
-| Tests, coverage >=85% TSK-018 | `@qa-tester` | `skill({name:"sdd-verify"})` |
+| Gradio UX redesign TSK-018.1..018.3 | `@frontend-dev` | `skill({name:"ui-integration"})` |
+| Tests, coverage >=85% TSK-019 | `@qa-tester` | `skill({name:"sdd-verify"})` |
 | Archive report after verify | `@qa-tester` | `/archive` |
 | IDOR, injection, `user_id` TSK-015 | `@security-auditor` | `skill({name:"security-audit"})` |
 | Dockerfile, compose, `.env` TSK-012..014 | `@devops-engineer` | `skill({name:"devops-docker"})` |

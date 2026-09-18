@@ -1,5 +1,5 @@
 ---
-description: ChronoLog QA, verifies DoD, coverage >=85% and TSK-018 criteria
+description: ChronoLog QA, verifies DoD, coverage >=85% and TSK-019 criteria
 mode: subagent
 permission:
   edit: deny

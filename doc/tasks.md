@@ -5,11 +5,11 @@ This document is the **single source of truth** for tracking the progress, lifec
 ## Sprint Dashboard Overview
 
 *   **Project Phase**: Phase 1: Planning & Setup
-*   **Total Tasks**: 20
-*   **Pending (Proposed)**: 1
+*   **Total Tasks**: 24
+*   **Pending (Proposed)**: 5
 *   **In Progress**: 0
 *   **Completed**: 19
-*   **Current Progress**: 95.00% [█████████░]
+*   **Current Progress**: 79.17% [████████░░]
 
 ---
 
@@ -212,11 +212,194 @@ This document is the **single source of truth** for tracking the progress, lifec
 
 ---
 
+### Phase 5b: MVP UX Redesign (Presentation Polish)
+*Status: Pending*
+
+#### [ ] TSK-018: Improve MVP User Experience & Presentation Layer
+*   **Description**: Redesign the ChronoLog Gradio presentation layer to provide a coherent, intuitive, and usable MVP workflow without changing the existing domain model, application use-case contracts, persistence model, authentication model, or Clean/Hexagonal Architecture. Replace developer-oriented interactions (UUID entry, raw ISO datetime strings, technical status output, always-visible authenticated views) with user-oriented controls and navigation.
+*   **Goal**: Transform the current functional technical UI into a simple but usable appointment/session management MVP following the intended user flow: Login → Dashboard → Client → New Appointment → Complete Appointment → Session Notes → History.
+*   **Scope**: Presentation/UI layer and, only where strictly necessary, presentation-facing read models or adapters required to populate UI controls. Existing domain rules, user isolation, authentication/security guarantees, and repository ownership constraints MUST remain unchanged.
+*   **Out of scope**: Framework migration, domain rewrite, new business capabilities, AI, notifications, calendar synchronization, recurring appointments, multi-professional support, mobile application, public API, or other post-MVP features.
+*   **Execution order**: TSK-018.1 → TSK-018.2 → TSK-018.3. TSK-019 MUST remain pending until all TSK-018 subtasks are completed and verified.
+*   **Proposed**: 2026-09-18 11:52 (UTC)
+*   **Started**: -
+*   **Completed**: -
+*   **Assignee**: @frontend-dev
+*   **Route**: `skill({name:"ui-integration"})`
+*   **Quality requirement**: Preserve existing security/AuthZ behavior, user_id scoping, session handling, domain/use-case boundaries, and all existing automated tests. Every subtask follows SDD + Strict TDD: RED → GREEN → REFACTOR → VERIFY → ARCHIVE.
+
+#### [ ] TSK-018.1: Authentication-Gated UI & Navigation Foundation
+*   **Description**: Restructure the ChronoLog Gradio presentation layer so unauthenticated users see only the authentication interface, while authenticated users see the application dashboard and navigation. Establish the visual and interaction foundation required by the subsequent UX tasks.
+*   **Requirements**:
+    1. Unauthenticated state MUST display only the ChronoLog authentication screen.
+    2. Authentication screen MUST provide clear Login and Register flows without exposing application tabs or data controls.
+    3. Authenticated state MUST expose the application navigation and user-facing content.
+    4. Logout MUST return the UI to the unauthenticated state and clear all user-specific presentation state.
+    5. Remove developer-facing `Auth status` and raw `user_id` display from the normal UI.
+    6. Display a simple authenticated-user indicator and a clear Logout action.
+    7. Establish top-level navigation for: Dashboard, Clients, Agenda, History.
+    8. Navigation MUST NOT perform unauthorised data access merely by becoming visible.
+    9. Existing authentication/session validation and `user_id` authorization MUST remain unchanged.
+    10. Existing tests and security guarantees MUST continue to pass.
+*   **UX target**:
+    ```text
+    Unauthenticated:
+        ChronoLog
+        Email
+        Password
+        [Login]
+        [Create account]
+
+    Authenticated:
+        ChronoLog       User        [Logout]
+        Dashboard | Clients | Agenda | History
+    ```
+*   **Acceptance criteria**:
+    *   No application data tabs are visible before authentication.
+    *   Login transitions to the authenticated application shell.
+    *   Logout removes/clears all previously displayed user data.
+    *   A second user cannot see stale data from the previous session.
+    *   UUIDs, session tokens, and internal authentication identifiers are not displayed.
+    *   Existing authentication/security tests remain green.
+    *   UI tests cover both authenticated and unauthenticated states.
+*   **Constraints**: Keep Gradio. Do not change domain entities or business rules. Do not replace the authentication/session implementation. Do not introduce frontend frameworks or a separate web application.
+*   **Verification**: RED tests first. `pytest tests/ -q --cov=src --cov-fail-under=85`. `ruff check src tests`. `mypy src`. `bandit -r src -q`. Docker smoke test with login/logout and authenticated/unauthenticated transitions.
+*   **Proposed**: 2026-09-18 11:52 (UTC)
+*   **Started**: -
+*   **Completed**: -
+*   **Assignee**: @frontend-dev
+*   **Route**: `skill({name:"ui-integration"})` via `/apply TSK-018.1`
+
+#### [ ] TSK-018.2: User-Friendly Client, Appointment & Agenda Workflow
+*   **Description**: Replace developer-oriented client and appointment interactions with user-friendly controls and workflows. Users MUST be able to create and manage appointments without copying or entering UUIDs or raw ISO datetime strings.
+*   **Requirements**:
+    1. Clients view MUST present clients as human-readable entries rather than raw text/UUID lists.
+    2. Client UUIDs MUST remain internal and MUST NOT be required or displayed during normal operation.
+    3. Scheduler MUST provide a client selector populated from the authenticated user's clients.
+    4. Scheduler MUST provide user-friendly date and time controls.
+    5. Scheduler MUST avoid requiring users to enter `YYYY-MM-DD HH:MM` manually.
+    6. Scheduler MUST provide a simple duration control or equivalent user-friendly start/end workflow.
+    7. Appointment creation MUST continue using the existing `ScheduleAppointment` use case.
+    8. Existing appointment overlap validation MUST remain authoritative.
+    9. Existing user_id ownership checks MUST remain authoritative.
+    10. Appointment lists MUST display: client name, date, start/end time or duration, human-readable status.
+    11. Scheduled appointments MUST expose appropriate user actions: Edit, Cancel, Complete.
+    12. Cancellation MUST use the existing appointment lifecycle/domain behavior.
+    13. Editing MUST preserve all existing domain validation rules, including overlap and ownership.
+    14. Completing an appointment MUST lead naturally into the session-notes workflow.
+    15. Add a simple Agenda view showing the user's upcoming appointments in chronological order.
+    16. Agenda MUST support a clear "New appointment" action.
+*   **UX target**:
+    ```text
+    New appointment
+
+    Client
+    [ John Smith                         ▼ ]
+
+    Date
+    [ 18/09/2026 ]
+
+    Time
+    [ 16:00 ]
+
+    Duration
+    [ 60 minutes                       ▼ ]
+
+    [ Create appointment ]
+    ```
+    ```text
+    Agenda
+
+    Today
+
+    09:00   John Smith       Consultation
+    10:30   Maria Garcia     Follow-up
+    12:00   Pedro Lopez      Consultation
+    ```
+*   **Acceptance criteria**:
+    *   A user can create an appointment without seeing or entering a UUID.
+    *   A user can select one of their clients from a human-readable control.
+    *   A user can create an appointment without manually entering an ISO datetime.
+    *   A user can edit an appointment through the UI.
+    *   A user can cancel an appointment through the UI.
+    *   A user can complete an appointment and proceed to session notes.
+    *   Overlapping appointments are still rejected by the existing use case.
+    *   Foreign-user clients/appointments cannot become selectable or accessible.
+    *   Empty client/appointment states are presented with actionable guidance.
+    *   Existing backend tests remain green.
+*   **Constraints**: Reuse existing `RegisterClient`, `ScheduleAppointment`, `CompleteAppointment`, and repository ports where applicable. Do not bypass use cases from the UI. Do not move business rules into Gradio handlers. Do not change UUIDs in the domain model. Do not introduce calendar synchronization or recurring appointments.
+*   **Verification**: RED tests first for all new presentation behavior. Test client selector population and authenticated ownership. Test appointment creation/edit/cancel/complete UI flows. Test invalid/empty selections without tracebacks. Run full pytest, coverage, ruff, mypy, bandit and Docker smoke tests.
+*   **Proposed**: 2026-09-18 11:52 (UTC)
+*   **Started**: -
+*   **Completed**: -
+*   **Assignee**: @frontend-dev
+*   **Route**: `skill({name:"ui-integration"})` via `/apply TSK-018.2`
+
+#### [ ] TSK-018.3: Dashboard, Client Profiles, History & UX Polish
+*   **Description**: Complete the MVP presentation experience by adding a lightweight dashboard, client-centric history, useful empty states, human-readable feedback, and consistent UI behavior across the application.
+*   **Requirements**:
+    1. Add a simple authenticated Dashboard as the default landing view.
+    2. Dashboard MUST show only lightweight operational information, such as: today's appointments, upcoming appointments, number of clients, number of pending/scheduled appointments.
+    3. Dashboard MUST provide quick actions: New client, New appointment.
+    4. Clients view MUST support basic client search/filtering.
+    5. Selecting a client MUST provide a simple client profile/detail view.
+    6. Client profile MUST show: client identity/contact information, upcoming appointments, relevant historical appointments, session notes where available, new appointment action.
+    7. History MUST be usable without manually entering a client UUID.
+    8. Completing an appointment MUST provide an integrated session-notes workflow.
+    9. History MUST present appointments chronologically and use human-readable statuses.
+    10. Replace technical status/error messages with concise user-facing messages.
+    11. Add useful empty states, for example: No clients yet, No upcoming appointments, No history for this client.
+    12. Add confirmation before destructive/cancel actions where appropriate.
+    13. Avoid displaying internal UUIDs, database identifiers, tokens, implementation details, or traceback information.
+    14. Maintain consistent labels, button naming, spacing, and navigation across all views.
+    15. Preserve existing authenticated user isolation.
+*   **UX target**:
+    ```text
+    Dashboard
+
+    Good morning
+
+    ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+    │ 5            │ │ 3            │ │ 24           │
+    │ Today        │ │ Upcoming     │ │ Clients      │
+    └──────────────┘ └──────────────┘ └──────────────┘
+
+    Today's appointments
+
+    09:00  John Smith
+    10:30  Maria Garcia
+    12:00  Pedro Lopez
+
+    [ + New client ]    [ + New appointment ]
+    ```
+*   **Acceptance criteria**:
+    *   Dashboard is useful immediately after login.
+    *   No raw UUIDs are needed to navigate any normal user workflow.
+    *   A client can be selected and their history viewed without copying IDs.
+    *   Session notes are naturally associated with completed appointments.
+    *   Empty states provide a clear next action.
+    *   Errors are understandable to a non-technical user.
+    *   No traceback or internal exception details are exposed in normal UI.
+    *   Logout clears dashboard, clients, appointments and history state.
+    *   Cross-user data isolation remains intact.
+    *   Existing tests plus new presentation tests pass.
+*   **Constraints**: Keep the dashboard deliberately simple; no analytics or graphing. Do not introduce post-MVP features. Reuse `GetClientHistory` rather than creating a parallel history implementation. Do not duplicate business logic in the presentation layer.
+*   **Verification**: RED tests first. Full unit/integration/presentation test suite. Coverage >=85%. ruff, mypy and bandit clean. Docker smoke test covering login → dashboard → client → appointment → complete → notes → history → logout.
+*   **Proposed**: 2026-09-18 11:52 (UTC)
+*   **Started**: -
+*   **Completed**: -
+*   **Assignee**: @frontend-dev
+*   **Route**: `skill({name:"ui-integration"})` via `/apply TSK-018.3`
+
+---
+
 ### Phase 6: Quality Verification & Project Delivery
 *Status: Pending*
 
-#### [ ] TSK-018: Execute Final Test Suite & Generate Coverage Report
-*   **Description**: Run automated unit, integration, and security tests in Docker environment. Ensure code coverage is at or above the strict 85% requirement defined in DoD.
+#### [ ] TSK-019: Execute Final Test Suite & Generate Coverage Report
+*   **Description**: Run automated unit, integration, presentation, and security tests in Docker environment. Ensure code coverage is at or above the strict 85% requirement defined in DoD.
+*   **Dependency**: MUST execute only after TSK-018.1, TSK-018.2 and TSK-018.3 are completed and archived.
+*   **Additional final validation**: Execute the complete end-to-end MVP smoke flow: `Register → Login → Dashboard → Create Client → Create Appointment → Edit/Cancel → Complete Appointment → Session Notes → Client History → Logout`.
 *   **Proposed**: 2026-09-07 11:57 (UTC)
 *   **Started**: -
 *   **Completed**: -
