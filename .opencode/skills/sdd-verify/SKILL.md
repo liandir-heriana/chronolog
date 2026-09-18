@@ -1,6 +1,6 @@
 ---
 name: sdd-verify
-description: Verify ChronoLog DoD with robust Python-realizable gates. Use for TSK-018 and task closure.
+description: Verify ChronoLog DoD with robust Python-realizable gates. Use for TSK-019 and task closure.
 ---
 
 ## What I do
