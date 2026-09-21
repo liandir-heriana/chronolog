@@ -6,10 +6,10 @@ This document is the **single source of truth** for tracking the progress, lifec
 
 *   **Project Phase**: Phase 1: Planning & Setup
 *   **Total Tasks**: 24
-*   **Pending (Proposed)**: 4
+*   **Pending (Proposed)**: 3
 *   **In Progress**: 0
-*   **Completed**: 20
-*   **Current Progress**: 83.33% [████████░░]
+*   **Completed**: 21
+*   **Current Progress**: 87.50% [█████████░]
 
 ---
 
@@ -271,7 +271,7 @@ This document is the **single source of truth** for tracking the progress, lifec
 *   **Route**: `skill({name:"ui-integration"})` via `/apply TSK-018.1`
 *   **Notes**: GREEN: auth-gated shell in `src/presentation/app.py` only (auth Column visible / shell hidden, `NAV_TABS` Dashboard|Clients|Agenda|History, Scheduler renamed to Agenda, Dashboard static placeholder, login label = email, `is_authenticated`/`auth_shell_visibility`/`format_user_indicator`/`handle_nav_select` pure helpers). RED-first `tests/presentation/test_auth_gating.py` (8 tests, ImportError RED). Verify: live 195 passed, cov 89.33%, ruff/mypy clean, bandit 0 high/critical (B104/B106 accepted), boundary 0, compose up + curl 200 + live smoke (unauth/login/nav/logout/isolation) + down clean (no -v). Guide: `verify/task18_1_test.md`.
 
-#### [ ] TSK-018.2: User-Friendly Client, Appointment & Agenda Workflow
+#### [x] TSK-018.2: User-Friendly Client, Appointment & Agenda Workflow
 *   **Description**: Replace developer-oriented client and appointment interactions with user-friendly controls and workflows. Users MUST be able to create and manage appointments without copying or entering UUIDs or raw ISO datetime strings.
 *   **Requirements**:
     1. Clients view MUST present clients as human-readable entries rather than raw text/UUID lists.
@@ -331,10 +331,11 @@ This document is the **single source of truth** for tracking the progress, lifec
 *   **Constraints**: Reuse existing `RegisterClient`, `ScheduleAppointment`, `CompleteAppointment`, and repository ports where applicable. Do not bypass use cases from the UI. Do not move business rules into Gradio handlers. Do not change UUIDs in the domain model. Do not introduce calendar synchronization or recurring appointments.
 *   **Verification**: RED tests first for all new presentation behavior. Test client selector population and authenticated ownership. Test appointment creation/edit/cancel/complete UI flows. Test invalid/empty selections without tracebacks. Run full pytest, coverage, ruff, mypy, bandit and Docker smoke tests.
 *   **Proposed**: 2026-09-18 11:52 (UTC)
-*   **Started**: -
-*   **Completed**: -
+*   **Started**: 2026-09-21 10:21 (UTC)
+*   **Completed**: 2026-09-21 10:44 (UTC)
 *   **Assignee**: @frontend-dev
 *   **Route**: `skill({name:"ui-integration"})` via `/apply TSK-018.2`
+*   **Notes**: GREEN presentation-only (`src/presentation/app.py`): client/appointment dropdowns (label=name, value=UUID hidden), Date calendar + Time/Duration dropdowns composing tz-aware UTC, edit via `Appointment.schedule` + `list_overlapping(exclude self)` + `save`, cancel via `cancel()` + `save`, agenda chronological upcoming, human-readable lists/statuses, friendly errors, empty guidance. RED-first `tests/presentation/test_friendly_workflow.py` (13, AttributeError RED) + `test_friendly_coverage.py` (9). Refactored `test_app_wiring`/`test_none_hardening` ID parsing to choice-helpers (D4). Verify live: 217 passed, cov 86.12%, ruff/mypy clean, bandit 0 high/critical (B104/B106 accepted), boundary 0, compose up + curl 200 + live flow (register→client→schedule→edit→complete→cancel→overlap→logout, cross-user isolated) + down clean (no -v). Guide: `verify/task18_2_test.md` (D1–D8).
 
 #### [ ] TSK-018.3: Dashboard, Client Profiles, History & UX Polish
 *   **Description**: Complete the MVP presentation experience by adding a lightweight dashboard, client-centric history, useful empty states, human-readable feedback, and consistent UI behavior across the application.
