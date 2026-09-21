@@ -42,6 +42,45 @@ from src.modules.clients.use_cases.register_client import RegisterClient
 
 _DATETIME_HINT = "YYYY-MM-DD HH:MM (UTC assumed, e.g. 2026-10-15 10:00)"
 
+# TSK-018.1: top-level navigation (auth-gated shell). Tabs live inside the
+# hidden app shell so unauthenticated users never see data controls.
+NAV_TABS: tuple[str, str, str, str] = ("Dashboard", "Clients", "Agenda", "History")
+
+
+def format_user_indicator(email: str | None) -> str:
+    """Return a user-friendly signed-in label (email only, no ids/tokens)."""
+    normalized = (email or "").strip()
+    if not normalized:
+        return ""
+    return f"Signed in as {normalized}"
+
+
+def auth_shell_visibility(authenticated: bool) -> tuple[bool, bool]:
+    """Return ``(auth_visible, shell_visible)`` for one auth state.
+
+    Pure visibility helper (no data access): unauthenticated shows only the
+    auth screen, authenticated shows only the app shell.
+    """
+    return (not authenticated, authenticated)
+
+
+def is_authenticated(token: str | None, deps: UIDeps) -> bool:
+    """Return True when ``token`` resolves to a live session (no oracle)."""
+    if not isinstance(token, str) or not token.strip():
+        return False
+    try:
+        _require_ctx(token, deps)
+    except (InvalidCredentialsError, ValueError, TypeError, AttributeError):
+        return False
+    return True
+
+
+def handle_nav_select(tab: str) -> str:
+    """Select a top-level tab without touching any data (pure, no deps)."""
+    if tab in NAV_TABS:
+        return tab
+    return NAV_TABS[0]
+
 
 @dataclass
 class UIDeps:
@@ -85,6 +124,7 @@ def handle_login(
     """Login with per-email AND per-IP throttle; generic error preserved.
 
     Returns ``(message, token, user_label)`` — token is ``""`` on failure.
+    The label is the normalized account email (never ``user_id``/token).
     """
     email_key, ip_key = _throttle_keys(email, client_ip)
     now = datetime.now(UTC)
@@ -104,7 +144,7 @@ def handle_login(
     deps.limiter.record_success(email_key)
     deps.limiter.record_success(ip_key)
     deps.sessions.save(session)
-    return ("Login ok.", session.token, session.user_id)
+    return ("Login ok.", session.token, (email or "").strip().lower())
 
 
 def handle_logout(token: str, deps: UIDeps) -> tuple[str, str, str]:
@@ -314,37 +354,171 @@ def handle_complete(
 
 
 def build_demo(deps: UIDeps) -> gr.Blocks:
-    """Build the ChronoLog dashboard (auth + Clients/Scheduler/History tabs)."""
+    """Build the auth-gated ChronoLog shell (TSK-018.1 foundation).
+
+    Unauthenticated: only the auth screen is visible. Authenticated: the
+    app shell with ``Dashboard | Clients | Agenda | History`` plus a
+    user indicator and Logout. Tab visibility alone never touches data —
+    every data view loads only through an explicit authenticated action.
+    """
     with gr.Blocks(title="ChronoLog") as demo:
         gr.Markdown("# ChronoLog — Appointment & Session Management (MVP)")
         token_state = gr.State("")
-        with gr.Row():
+
+        with gr.Column(visible=True) as auth_screen:
+            gr.Markdown("## ChronoLog\nSign in to manage appointments.")
             email = gr.Textbox(label="Email", placeholder="pro@example.com")
             password = gr.Textbox(
                 label="Password", type="password", placeholder="minimum 8 characters"
             )
-        with gr.Row():
-            login_btn = gr.Button("Login", variant="primary")
-            register_btn = gr.Button("Register")
-            logout_btn = gr.Button("Logout")
-        auth_status = gr.Textbox(label="Auth status", interactive=False)
-        user_label = gr.Textbox(label="Signed in as (user_id)", interactive=False)
+            with gr.Row():
+                login_btn = gr.Button("Login", variant="primary")
+                register_btn = gr.Button("Create account")
+            auth_message = gr.Textbox(label="Sign-in message", interactive=False)
 
-        def _login(email_v: str, password_v: str) -> tuple[str, str, str]:
-            return handle_login(email_v, password_v, "gradio-ui", deps)
+        with gr.Column(visible=False) as app_shell:
+            with gr.Row():
+                gr.Markdown("## ChronoLog")
+                user_indicator = gr.Textbox(
+                    label="Signed in as", interactive=False
+                )
+                logout_btn = gr.Button("Logout")
+
+            with gr.Tabs():
+                with gr.Tab("Dashboard"):
+                    gr.Markdown(
+                        "Welcome back. Your overview lands here in TSK-018.3 — "
+                        "use Clients, Agenda or History to continue."
+                    )
+                with gr.Tab("Clients"):
+                    gr.Markdown(
+                        "Register a client profile — the list refreshes automatically."
+                    )
+                    name = gr.Textbox(label="Full name", placeholder="Alice Smith")
+                    client_email = gr.Textbox(
+                        label="Client email", placeholder="alice@example.com"
+                    )
+                    phone = gr.Textbox(
+                        label="Phone (optional)", placeholder="+34600111222"
+                    )
+                    with gr.Row():
+                        client_save = gr.Button("Register client", variant="primary")
+                        client_refresh = gr.Button("Refresh list")
+                    client_status = gr.Textbox(label="Result", interactive=False)
+                    client_list = gr.Textbox(
+                        label="My clients (id | name | email | phone)",
+                        interactive=False,
+                    )
+                    client_save.click(
+                        lambda t, n, e, p: (
+                            handle_create_client(t, n, e, p, deps),
+                            handle_list_clients(t, deps),
+                        ),
+                        inputs=[token_state, name, client_email, phone],
+                        outputs=[client_status, client_list],
+                    )
+                    client_refresh.click(
+                        lambda t: handle_list_clients(t, deps),
+                        inputs=[token_state],
+                        outputs=[client_list],
+                    )
+                with gr.Tab("Agenda"):
+                    gr.Markdown(
+                        "Schedule with a client id from the Clients tab. "
+                        f"Times: {_DATETIME_HINT}."
+                    )
+                    sched_client = gr.Textbox(label="Client id (UUID)")
+                    starts = gr.Textbox(
+                        label="Starts at", placeholder="2026-10-15 10:00"
+                    )
+                    ends = gr.Textbox(label="Ends at", placeholder="2026-10-15 11:00")
+                    with gr.Row():
+                        sched_btn = gr.Button("Schedule", variant="primary")
+                        sched_refresh = gr.Button("Refresh list")
+                    sched_status = gr.Textbox(label="Result", interactive=False)
+                    sched_list = gr.Textbox(
+                        label="My appointments (id | client | window | status)",
+                        interactive=False,
+                    )
+                    sched_btn.click(
+                        lambda t, c, s, e: (
+                            handle_schedule(t, c, s, e, deps),
+                            handle_list_appointments(t, deps),
+                        ),
+                        inputs=[token_state, sched_client, starts, ends],
+                        outputs=[sched_status, sched_list],
+                    )
+                    sched_refresh.click(
+                        lambda t: handle_list_appointments(t, deps),
+                        inputs=[token_state],
+                        outputs=[sched_list],
+                    )
+                with gr.Tab("History"):
+                    gr.Markdown("Client history plus manual session notes review.")
+                    hist_client = gr.Textbox(label="Client id (UUID)")
+                    hist_btn = gr.Button("Load history", variant="primary")
+                    hist_summary = gr.Textbox(
+                        label="Client + appointments", interactive=False
+                    )
+                    hist_notes = gr.Textbox(label="Session notes", interactive=False)
+                    hist_btn.click(
+                        lambda t, c: handle_history(t, c, deps),
+                        inputs=[token_state, hist_client],
+                        outputs=[hist_summary, hist_notes],
+                    )
+                    gr.Markdown("Complete an appointment with manual notes:")
+                    complete_appt = gr.Textbox(label="Appointment id (UUID)")
+                    complete_notes = gr.Textbox(
+                        label="Session notes",
+                        lines=4,
+                        placeholder="Manual summary...",
+                    )
+                    complete_btn = gr.Button("Complete with notes")
+                    complete_status = gr.Textbox(label="Result", interactive=False)
+                    complete_btn.click(
+                        lambda t, a, c: _complete_and_refresh(t, a, c, deps),
+                        inputs=[token_state, complete_appt, complete_notes],
+                        outputs=[
+                            complete_status,
+                            sched_list,
+                            hist_summary,
+                            hist_notes,
+                        ],
+                    )
+
+        def _login(
+            email_v: str, password_v: str
+        ) -> tuple[str, str, str, Any, Any]:
+            """Login and toggle auth->shell visibility (no data fetch)."""
+            message, token, label = handle_login(
+                email_v, password_v, "gradio-ui", deps
+            )
+            authenticated = bool(token)
+            auth_vis, shell_vis = auth_shell_visibility(authenticated)
+            indicator = format_user_indicator(label) if authenticated else ""
+            return (
+                message,
+                token,
+                indicator,
+                gr.update(visible=auth_vis),
+                gr.update(visible=shell_vis),
+            )
 
         def _register(email_v: str, password_v: str) -> str:
             return handle_register(email_v, password_v, deps)
 
         def _logout_and_clear(
             token_v: str,
-        ) -> tuple[str, str, str, str, str, str, str, str, str, str]:
+        ) -> tuple[str, str, str, Any, Any, str, str, str, str, str, str, str]:
             """Revoke the session and clear every data view (no stale rows)."""
-            status, cleared, label = handle_logout(token_v, deps)
+            status, cleared, _label = handle_logout(token_v, deps)
+            auth_vis, shell_vis = auth_shell_visibility(False)
             return (
                 status,
                 cleared,
-                label,
+                "",
+                gr.update(visible=auth_vis),
+                gr.update(visible=shell_vis),
                 "",
                 "(no clients yet)",
                 "",
@@ -354,142 +528,31 @@ def build_demo(deps: UIDeps) -> gr.Blocks:
                 "",
             )
 
-        def _save_client_and_refresh(
-            t: str, n: str, e: str, p: str
-        ) -> tuple[str, str]:
-            """Register then immediately refresh the client list (TSK-017)."""
-            status = handle_create_client(t, n, e, p, deps)
-            return status, handle_list_clients(t, deps)
-
-        def _schedule_and_refresh(
-            t: str, c: str, s: str, e: str
-        ) -> tuple[str, str]:
-            """Schedule then immediately refresh the appointment list."""
-            status = handle_schedule(t, c, s, e, deps)
-            return status, handle_list_appointments(t, deps)
-
-        def _complete_and_refresh(
-            t: str, a: str, c: str
-        ) -> tuple[str, str, str, str]:
-            """Complete, then refresh status list + history (best-effort)."""
-            status = handle_complete(t, a, c, deps)
-            sched_view = handle_list_appointments(t, deps)
-            try:
-                ctx = _require_ctx(t, deps)
-                from src.modules.appointments.domain.value_objects import (
-                    AppointmentId,
-                )
-
-                appt = deps.appointments_repo.find_by_id_and_user_id(
-                    AppointmentId((a or "").strip()), ctx.user_id
-                )
-                if appt is not None:
-                    hist_summary, hist_notes = handle_history(
-                        t, appt.client_id, deps
-                    )
-                else:
-                    hist_summary, hist_notes = "", ""
-            except (ValueError, TypeError, AttributeError):
-                hist_summary, hist_notes = "", ""
-            return status, sched_view, hist_summary, hist_notes
-
         login_btn.click(
-            _login, inputs=[email, password], outputs=[auth_status, token_state, user_label]
+            _login,
+            inputs=[email, password],
+            outputs=[
+                auth_message,
+                token_state,
+                user_indicator,
+                auth_screen,
+                app_shell,
+            ],
         )
-        register_btn.click(_register, inputs=[email, password], outputs=[auth_status])
-
-        with gr.Tabs():
-            with gr.Tab("Clients"):
-                gr.Markdown("Register a client profile — the list refreshes automatically.")
-                name = gr.Textbox(label="Full name", placeholder="Alice Smith")
-                client_email = gr.Textbox(
-                    label="Client email", placeholder="alice@example.com"
-                )
-                phone = gr.Textbox(
-                    label="Phone (optional)", placeholder="+34600111222"
-                )
-                with gr.Row():
-                    client_save = gr.Button("Register client", variant="primary")
-                    client_refresh = gr.Button("Refresh list")
-                client_status = gr.Textbox(label="Result", interactive=False)
-                client_list = gr.Textbox(
-                    label="My clients (id | name | email | phone)", interactive=False
-                )
-                client_save.click(
-                    _save_client_and_refresh,
-                    inputs=[token_state, name, client_email, phone],
-                    outputs=[client_status, client_list],
-                )
-                client_refresh.click(
-                    lambda t: handle_list_clients(t, deps),
-                    inputs=[token_state],
-                    outputs=[client_list],
-                )
-            with gr.Tab("Scheduler"):
-                gr.Markdown(
-                    "Schedule with a client id from the Clients tab. "
-                    f"Times: {_DATETIME_HINT}."
-                )
-                sched_client = gr.Textbox(label="Client id (UUID)")
-                starts = gr.Textbox(
-                    label="Starts at", placeholder="2026-10-15 10:00"
-                )
-                ends = gr.Textbox(label="Ends at", placeholder="2026-10-15 11:00")
-                with gr.Row():
-                    sched_btn = gr.Button("Schedule", variant="primary")
-                    sched_refresh = gr.Button("Refresh list")
-                sched_status = gr.Textbox(label="Result", interactive=False)
-                sched_list = gr.Textbox(
-                    label="My appointments (id | client | window | status)",
-                    interactive=False,
-                )
-                sched_btn.click(
-                    _schedule_and_refresh,
-                    inputs=[token_state, sched_client, starts, ends],
-                    outputs=[sched_status, sched_list],
-                )
-                sched_refresh.click(
-                    lambda t: handle_list_appointments(t, deps),
-                    inputs=[token_state],
-                    outputs=[sched_list],
-                )
-            with gr.Tab("History"):
-                gr.Markdown("Client history plus manual session notes review.")
-                hist_client = gr.Textbox(label="Client id (UUID)")
-                hist_btn = gr.Button("Load history", variant="primary")
-                hist_summary = gr.Textbox(label="Client + appointments", interactive=False)
-                hist_notes = gr.Textbox(label="Session notes", interactive=False)
-                hist_btn.click(
-                    lambda t, c: handle_history(t, c, deps),
-                    inputs=[token_state, hist_client],
-                    outputs=[hist_summary, hist_notes],
-                )
-                gr.Markdown("Complete an appointment with manual notes:")
-                complete_appt = gr.Textbox(label="Appointment id (UUID)")
-                complete_notes = gr.Textbox(
-                    label="Session notes", lines=4, placeholder="Manual summary..."
-                )
-                complete_btn = gr.Button("Complete with notes")
-                complete_status = gr.Textbox(label="Result", interactive=False)
-                complete_btn.click(
-                    _complete_and_refresh,
-                    inputs=[token_state, complete_appt, complete_notes],
-                    outputs=[
-                        complete_status,
-                        sched_list,
-                        hist_summary,
-                        hist_notes,
-                    ],
-                )
+        register_btn.click(
+            _register, inputs=[email, password], outputs=[auth_message]
+        )
         # Logout last: clears the session AND every data view so the next
         # user never sees stale rows (all components exist by now).
         logout_btn.click(
             _logout_and_clear,
             inputs=[token_state],
             outputs=[
-                auth_status,
+                auth_message,
                 token_state,
-                user_label,
+                user_indicator,
+                auth_screen,
+                app_shell,
                 client_status,
                 client_list,
                 sched_status,
@@ -500,3 +563,27 @@ def build_demo(deps: UIDeps) -> gr.Blocks:
             ],
         )
     return demo
+
+
+def _complete_and_refresh(
+    t: str, a: str, c: str, deps: UIDeps
+) -> tuple[str, str, str, str]:
+    """Complete, then refresh status list + history (best-effort)."""
+    status = handle_complete(t, a, c, deps)
+    sched_view = handle_list_appointments(t, deps)
+    try:
+        ctx = _require_ctx(t, deps)
+        from src.modules.appointments.domain.value_objects import (
+            AppointmentId,
+        )
+
+        appt = deps.appointments_repo.find_by_id_and_user_id(
+            AppointmentId((a or "").strip()), ctx.user_id
+        )
+        if appt is not None:
+            hist_summary, hist_notes = handle_history(t, appt.client_id, deps)
+        else:
+            hist_summary, hist_notes = "", ""
+    except (ValueError, TypeError, AttributeError):
+        hist_summary, hist_notes = "", ""
+    return status, sched_view, hist_summary, hist_notes

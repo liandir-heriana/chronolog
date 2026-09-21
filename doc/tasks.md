@@ -6,10 +6,10 @@ This document is the **single source of truth** for tracking the progress, lifec
 
 *   **Project Phase**: Phase 1: Planning & Setup
 *   **Total Tasks**: 24
-*   **Pending (Proposed)**: 5
+*   **Pending (Proposed)**: 4
 *   **In Progress**: 0
-*   **Completed**: 19
-*   **Current Progress**: 79.17% [████████░░]
+*   **Completed**: 20
+*   **Current Progress**: 83.33% [████████░░]
 
 ---
 
@@ -228,7 +228,7 @@ This document is the **single source of truth** for tracking the progress, lifec
 *   **Route**: `skill({name:"ui-integration"})`
 *   **Quality requirement**: Preserve existing security/AuthZ behavior, user_id scoping, session handling, domain/use-case boundaries, and all existing automated tests. Every subtask follows SDD + Strict TDD: RED → GREEN → REFACTOR → VERIFY → ARCHIVE.
 
-#### [ ] TSK-018.1: Authentication-Gated UI & Navigation Foundation
+#### [x] TSK-018.1: Authentication-Gated UI & Navigation Foundation
 *   **Description**: Restructure the ChronoLog Gradio presentation layer so unauthenticated users see only the authentication interface, while authenticated users see the application dashboard and navigation. Establish the visual and interaction foundation required by the subsequent UX tasks.
 *   **Requirements**:
     1. Unauthenticated state MUST display only the ChronoLog authentication screen.
@@ -265,10 +265,11 @@ This document is the **single source of truth** for tracking the progress, lifec
 *   **Constraints**: Keep Gradio. Do not change domain entities or business rules. Do not replace the authentication/session implementation. Do not introduce frontend frameworks or a separate web application.
 *   **Verification**: RED tests first. `pytest tests/ -q --cov=src --cov-fail-under=85`. `ruff check src tests`. `mypy src`. `bandit -r src -q`. Docker smoke test with login/logout and authenticated/unauthenticated transitions.
 *   **Proposed**: 2026-09-18 11:52 (UTC)
-*   **Started**: -
-*   **Completed**: -
+*   **Started**: 2026-09-18 12:09 (UTC)
+*   **Completed**: 2026-09-18 12:16 (UTC)
 *   **Assignee**: @frontend-dev
 *   **Route**: `skill({name:"ui-integration"})` via `/apply TSK-018.1`
+*   **Notes**: GREEN: auth-gated shell in `src/presentation/app.py` only (auth Column visible / shell hidden, `NAV_TABS` Dashboard|Clients|Agenda|History, Scheduler renamed to Agenda, Dashboard static placeholder, login label = email, `is_authenticated`/`auth_shell_visibility`/`format_user_indicator`/`handle_nav_select` pure helpers). RED-first `tests/presentation/test_auth_gating.py` (8 tests, ImportError RED). Verify: live 195 passed, cov 89.33%, ruff/mypy clean, bandit 0 high/critical (B104/B106 accepted), boundary 0, compose up + curl 200 + live smoke (unauth/login/nav/logout/isolation) + down clean (no -v). Guide: `verify/task18_1_test.md`.
 
 #### [ ] TSK-018.2: User-Friendly Client, Appointment & Agenda Workflow
 *   **Description**: Replace developer-oriented client and appointment interactions with user-friendly controls and workflows. Users MUST be able to create and manage appointments without copying or entering UUIDs or raw ISO datetime strings.
