@@ -6,10 +6,10 @@ This document is the **single source of truth** for tracking the progress, lifec
 
 *   **Project Phase**: Phase 1: Planning & Setup
 *   **Total Tasks**: 24
-*   **Pending (Proposed)**: 3
+*   **Pending (Proposed)**: 1
 *   **In Progress**: 0
-*   **Completed**: 21
-*   **Current Progress**: 87.50% [█████████░]
+*   **Completed**: 23
+*   **Current Progress**: 95.83% [██████████]
 
 ---
 
@@ -215,18 +215,19 @@ This document is the **single source of truth** for tracking the progress, lifec
 ### Phase 5b: MVP UX Redesign (Presentation Polish)
 *Status: Pending*
 
-#### [ ] TSK-018: Improve MVP User Experience & Presentation Layer
+#### [x] TSK-018: Improve MVP User Experience & Presentation Layer
 *   **Description**: Redesign the ChronoLog Gradio presentation layer to provide a coherent, intuitive, and usable MVP workflow without changing the existing domain model, application use-case contracts, persistence model, authentication model, or Clean/Hexagonal Architecture. Replace developer-oriented interactions (UUID entry, raw ISO datetime strings, technical status output, always-visible authenticated views) with user-oriented controls and navigation.
 *   **Goal**: Transform the current functional technical UI into a simple but usable appointment/session management MVP following the intended user flow: Login → Dashboard → Client → New Appointment → Complete Appointment → Session Notes → History.
 *   **Scope**: Presentation/UI layer and, only where strictly necessary, presentation-facing read models or adapters required to populate UI controls. Existing domain rules, user isolation, authentication/security guarantees, and repository ownership constraints MUST remain unchanged.
 *   **Out of scope**: Framework migration, domain rewrite, new business capabilities, AI, notifications, calendar synchronization, recurring appointments, multi-professional support, mobile application, public API, or other post-MVP features.
 *   **Execution order**: TSK-018.1 → TSK-018.2 → TSK-018.3. TSK-019 MUST remain pending until all TSK-018 subtasks are completed and verified.
 *   **Proposed**: 2026-09-18 11:52 (UTC)
-*   **Started**: -
-*   **Completed**: -
+*   **Started**: 2026-09-18 12:09 (UTC)
+*   **Completed**: 2026-09-21 (UTC)
 *   **Assignee**: @frontend-dev
 *   **Route**: `skill({name:"ui-integration"})`
 *   **Quality requirement**: Preserve existing security/AuthZ behavior, user_id scoping, session handling, domain/use-case boundaries, and all existing automated tests. Every subtask follows SDD + Strict TDD: RED → GREEN → REFACTOR → VERIFY → ARCHIVE.
+*   **Closure**: all subtasks archived (018.1 auth-gated shell, 018.2 friendly workflow, 018.3 dashboard/profiles/history). Coverage floor held: 86.12% → 86.40%. No domain/use-case/infra changes across the three.
 
 #### [x] TSK-018.1: Authentication-Gated UI & Navigation Foundation
 *   **Description**: Restructure the ChronoLog Gradio presentation layer so unauthenticated users see only the authentication interface, while authenticated users see the application dashboard and navigation. Establish the visual and interaction foundation required by the subsequent UX tasks.
@@ -337,7 +338,7 @@ This document is the **single source of truth** for tracking the progress, lifec
 *   **Route**: `skill({name:"ui-integration"})` via `/apply TSK-018.2`
 *   **Notes**: GREEN presentation-only (`src/presentation/app.py`): client/appointment dropdowns (label=name, value=UUID hidden), Date calendar + Time/Duration dropdowns composing tz-aware UTC, edit via `Appointment.schedule` + `list_overlapping(exclude self)` + `save`, cancel via `cancel()` + `save`, agenda chronological upcoming, human-readable lists/statuses, friendly errors, empty guidance. RED-first `tests/presentation/test_friendly_workflow.py` (13, AttributeError RED) + `test_friendly_coverage.py` (9). Refactored `test_app_wiring`/`test_none_hardening` ID parsing to choice-helpers (D4). Verify live: 217 passed, cov 86.12%, ruff/mypy clean, bandit 0 high/critical (B104/B106 accepted), boundary 0, compose up + curl 200 + live flow (register→client→schedule→edit→complete→cancel→overlap→logout, cross-user isolated) + down clean (no -v). Guide: `verify/task18_2_test.md` (D1–D8).
 
-#### [ ] TSK-018.3: Dashboard, Client Profiles, History & UX Polish
+#### [x] TSK-018.3: Dashboard, Client Profiles, History & UX Polish
 *   **Description**: Complete the MVP presentation experience by adding a lightweight dashboard, client-centric history, useful empty states, human-readable feedback, and consistent UI behavior across the application.
 *   **Requirements**:
     1. Add a simple authenticated Dashboard as the default landing view.
@@ -387,11 +388,13 @@ This document is the **single source of truth** for tracking the progress, lifec
     *   Existing tests plus new presentation tests pass.
 *   **Constraints**: Keep the dashboard deliberately simple; no analytics or graphing. Do not introduce post-MVP features. Reuse `GetClientHistory` rather than creating a parallel history implementation. Do not duplicate business logic in the presentation layer.
 *   **Verification**: RED tests first. Full unit/integration/presentation test suite. Coverage >=85%. ruff, mypy and bandit clean. Docker smoke test covering login → dashboard → client → appointment → complete → notes → history → logout.
+*   **Coverage floor (mandatory, option 1)**: incoming coverage is 86.12% — every new handler MUST ship with RED-first tests and the task MUST NOT close below 86.12% total. No filler tests; if the gate is at risk, stop and escalate instead of forcing it.
 *   **Proposed**: 2026-09-18 11:52 (UTC)
-*   **Started**: -
-*   **Completed**: -
+*   **Started**: 2026-09-21 11:15 (UTC)
+*   **Completed**: 2026-09-21 11:40 (UTC)
 *   **Assignee**: @frontend-dev
 *   **Route**: `skill({name:"ui-integration"})` via `/apply TSK-018.3`
+*   **Notes**: GREEN presentation-only (`src/presentation/app.py`): `handle_dashboard` (greeting + Today/Upcoming/Clients/Scheduled + today's list + empty next-actions), quick actions (populate+guide, no fetch-on-login), `search_client_choices` (name/email/phone), `handle_client_profile` via `GetClientHistory` (identity/upcoming/history/notes/schedule hint), `handle_profile_schedule_action`, `request_cancel_confirmation` + Confirm reusing domain cancel. RED-first `tests/presentation/test_dashboard_polish.py` (22: 19 workflow + 3 hardening, AttributeError RED). Verify live: 239 passed, cov 86.40% (floor 86.12% HOLDS, +0.28pp), ruff/mypy clean, bandit 0 high/critical (B104/B106 accepted), boundary 0, compose `up --build` + curl 200 + live flow (register→dashboard→client→search→schedule→agenda→profile→preview→complete→notes→history→isolation→logout) + `down` clean (no -v). Replaced stale `verify/task18_3_test.md` draft (referenced non-existent handlers.py/GetTodayAppointments). Guide: `verify/task18_3_test.md` (D1–D7).
 
 ---
 

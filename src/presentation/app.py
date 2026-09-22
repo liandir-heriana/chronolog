@@ -726,6 +726,334 @@ def handle_agenda(token: str | None, deps: UIDeps) -> str:
     return "\n".join(lines)
 
 
+# ---------------------------------------------------------------------------
+# TSK-018.3 polish: dashboard, search/filter, profiles, cancel confirmation.
+# Pure orchestration over owned reads + GetClientHistory; no business rules,
+# no new ports, no analytics. All messages concise and UUID-free.
+# ---------------------------------------------------------------------------
+
+
+def _day_greeting(now: datetime) -> str:
+    """Return a time-of-day greeting (presentation formatting only)."""
+    try:
+        hour = now.hour
+    except (AttributeError, TypeError, ValueError):
+        return "Hello"
+    if hour < 12:
+        return "Good morning"
+    if hour < 20:
+        return "Good afternoon"
+    return "Good evening"
+
+
+def handle_dashboard(token: str | None, deps: UIDeps) -> str:
+    """Return the lightweight landing overview (counts + today's list).
+
+    Reads owned clients/appointments only (``ctx.user_id``), counts today /
+    upcoming / clients / scheduled, and lists today's appointments as
+    ``HH:MM  Name`` lines. Empty states carry the next action.
+    """
+    try:
+        ctx = _require_ctx(token if isinstance(token, str) else "", deps)
+    except InvalidCredentialsError:
+        return "Please log in first."
+    try:
+        clients = deps.clients_repo.list_by_user_id(ctx.user_id)
+        appointments = deps.appointments_repo.list_by_user_id(ctx.user_id)
+    except (ValueError, TypeError, AttributeError) as exc:
+        return f"Could not load dashboard: {exc}"
+    names = _client_name_map(deps, ctx.user_id)
+    now = datetime.now(UTC)
+    today = now.date()
+    n_today = 0
+    n_upcoming = 0
+    n_scheduled = 0
+    today_items: list[tuple[datetime, str]] = []
+    for appt in appointments or []:
+        try:
+            status_val = str(appt.status.value)
+            starts = appt.starts_at
+        except (AttributeError, TypeError, ValueError):
+            continue
+        if status_val == "scheduled":
+            n_scheduled += 1
+            try:
+                is_upcoming = starts >= now
+            except TypeError:
+                is_upcoming = False
+            if is_upcoming:
+                n_upcoming += 1
+        try:
+            is_today = starts.date() == today
+        except (AttributeError, TypeError, ValueError):
+            is_today = False
+        if is_today:
+            n_today += 1
+            cname = names.get(str(appt.client_id), "Unknown client")
+            try:
+                line = f"{starts:%H:%M}  {cname}"
+            except (AttributeError, TypeError, ValueError):
+                continue
+            today_items.append((starts, line))
+    try:
+        today_items.sort(key=lambda item: item[0])
+    except (TypeError, AttributeError):
+        pass
+    head = (
+        f"{_day_greeting(now)} — here's your day at a glance.\n"
+        f"Today: {n_today} appointment(s) · Upcoming: {n_upcoming} · "
+        f"Clients: {len(clients or [])} · Scheduled: {n_scheduled}"
+    )
+    if today_items:
+        body = "Today's appointments\n" + "\n".join(
+            line for _, line in today_items
+        )
+        return head + "\n\n" + body
+    parts = [head, "No appointments today."]
+    if not (clients or []):
+        parts.append("No clients yet — add your first client in Clients.")
+    if n_upcoming == 0:
+        parts.append(
+            "No upcoming appointments — use + New appointment in Agenda to schedule."
+        )
+    return "\n".join(parts)
+
+
+def handle_quick_new_client(token: str | None, deps: UIDeps) -> str:
+    """Point the user at client creation (dashboard quick action)."""
+    try:
+        _require_ctx(token if isinstance(token, str) else "", deps)
+    except InvalidCredentialsError:
+        return "Please log in first."
+    return "Open the Clients tab, fill the form, and click Register client."
+
+
+def handle_quick_new_appointment(
+    token: str | None, deps: UIDeps
+) -> tuple[list[tuple[str, str]], str]:
+    """Prepare the Agenda client list (dashboard quick action).
+
+    Returns ``(choices, message)`` — choices refresh the scheduler
+    dropdown so the Agenda tab is ready, message tells where to go.
+    """
+    try:
+        _require_ctx(token if isinstance(token, str) else "", deps)
+    except InvalidCredentialsError:
+        return ([], "Please log in first.")
+    choices = get_client_choices(token, deps)
+    return (
+        choices,
+        "Client list ready: open the Agenda tab, choose a client, pick a date and time.",
+    )
+
+
+def search_client_choices(
+    token: str | None, query: str | None, deps: UIDeps
+) -> list[tuple[str, str]]:
+    """Filter owned clients by name/email/phone substring (case-insensitive).
+
+    Blank queries return every owned client; invalid tokens or non-string
+    queries yield ``[]``. Labels stay human-readable, values stay hidden.
+    """
+    if not isinstance(query, str):
+        return []
+    if not query.strip():
+        return get_client_choices(token, deps)
+    try:
+        ctx = _require_ctx(token if isinstance(token, str) else "", deps)
+    except (InvalidCredentialsError, ValueError, TypeError, AttributeError):
+        return []
+    try:
+        clients = deps.clients_repo.list_by_user_id(ctx.user_id)
+    except (ValueError, TypeError, AttributeError):
+        return []
+    needle = query.strip().lower()
+    matches = []
+    for client in clients or []:
+        try:
+            name = str(client.name)
+            email_val = str(client.email.value)
+            phone_val = (
+                str(client.phone.value) if client.phone is not None else ""
+            )
+        except (AttributeError, TypeError, ValueError):
+            continue
+        haystack = f"{name} {email_val} {phone_val}".lower()
+        if needle in haystack:
+            matches.append(client)
+    ordered = sorted(matches, key=lambda c: str(getattr(c, "name", "")).lower())
+    choices: list[tuple[str, str]] = []
+    for client in ordered:
+        try:
+            cid = str(client.id.value)
+            label = format_client_label(client)
+        except (AttributeError, TypeError, ValueError):
+            continue
+        if cid in label:
+            label = str(client.name)
+        choices.append((label, cid))
+    return choices
+
+
+def handle_client_profile(
+    token: str | None, client_value: str | None, deps: UIDeps
+) -> str:
+    """Return one client's profile: identity, upcoming, history, notes.
+
+    History comes from the existing ``GetClientHistory`` use-case
+    (chronological, no parallel implementation); notes reuse the
+    adapter-local bridge. Ends with the schedule next action.
+    """
+    try:
+        ctx = _require_ctx(token if isinstance(token, str) else "", deps)
+    except InvalidCredentialsError:
+        return "Please log in first."
+    selected = (client_value or "").strip() if isinstance(client_value, str) else ""
+    if not selected:
+        return "Please choose one of your clients to view the profile."
+    try:
+        history = deps.get_history.execute(
+            user_id=ctx.user_id, client_id=selected
+        )
+    except (ValueError, TypeError, AttributeError):
+        return "That client was not found. It may belong to another user."
+    client = history.client
+    try:
+        phone_val = client.phone.value if client.phone is not None else ""
+    except (AttributeError, TypeError, ValueError):
+        phone_val = ""
+    identity = f"{client.name} <{client.email.value}>"
+    if phone_val.strip():
+        identity = f"{identity} · {phone_val.strip()}"
+    now = datetime.now(UTC)
+    upcoming_lines = []
+    for appt in history.appointments:
+        try:
+            status_val = str(appt.status.value)
+            starts = appt.starts_at
+        except (AttributeError, TypeError, ValueError):
+            continue
+        if status_val != "scheduled":
+            continue
+        try:
+            if starts < now:
+                continue
+        except TypeError:
+            continue
+        try:
+            upcoming_lines.append(
+                _friendly_appt_line(starts, appt.ends_at, client.name, appt.status)
+            )
+        except (AttributeError, TypeError, ValueError):
+            continue
+    history_lines = []
+    notes_blocks = []
+    for appt in history.appointments:
+        try:
+            history_lines.append(
+                _friendly_appt_line(
+                    appt.starts_at, appt.ends_at, client.name, appt.status
+                )
+            )
+        except (AttributeError, TypeError, ValueError):
+            continue
+        content = _notes_text(deps, appt.id.value, ctx.user_id)
+        if content:
+            notes_blocks.append(f"[{appt.starts_at:%d/%m/%Y %H:%M}]\n{content}")
+    parts = [identity]
+    parts.append(f"Upcoming appointments ({len(upcoming_lines)})")
+    if upcoming_lines:
+        parts.extend(upcoming_lines)
+    else:
+        parts.append("No upcoming appointments for this client.")
+    parts.append(f"History ({len(history_lines)} appointment(s))")
+    if history_lines:
+        parts.extend(history_lines)
+    else:
+        parts.append("No history for this client yet.")
+    parts.append("Session notes")
+    if notes_blocks:
+        parts.extend(notes_blocks)
+    else:
+        parts.append("(no session notes yet)")
+    parts.append("To schedule: open Agenda, choose this client, pick a date and time.")
+    return "\n".join(parts)
+
+
+def handle_profile_schedule_action(
+    token: str | None, client_value: str | None, deps: UIDeps
+) -> tuple[str | None, str]:
+    """Target the Agenda scheduler at one owned client (profile action).
+
+    Returns ``(client_uuid_or_None, message)`` — the UUID feeds the
+    scheduler dropdown value (hidden), the message names the next step.
+    """
+    try:
+        ctx = _require_ctx(token if isinstance(token, str) else "", deps)
+    except InvalidCredentialsError:
+        return (None, "Please log in first.")
+    selected = (client_value or "").strip() if isinstance(client_value, str) else ""
+    if not selected:
+        return (None, "Please choose one of your clients to schedule.")
+    try:
+        from src.modules.clients.domain.value_objects import ClientId
+
+        found = deps.clients_repo.find_by_id_and_user_id(
+            ClientId(selected), ctx.user_id
+        )
+    except (ValueError, TypeError, AttributeError):
+        return (None, "That client was not found. It may belong to another user.")
+    if found is None:
+        return (None, "That client was not found. It may belong to another user.")
+    try:
+        cname = str(found.name)
+    except (AttributeError, TypeError, ValueError):
+        cname = "your client"
+    return (selected, f"Ready: open Agenda to schedule with {cname}.")
+
+
+def request_cancel_confirmation(
+    token: str | None, appointment_value: str | None, deps: UIDeps
+) -> str:
+    """Preview a cancellation and ask for explicit confirmation.
+
+    Side-effect free: the appointment stays scheduled until the existing
+    ``handle_cancel_appointment`` runs (Confirm cancel button).
+    """
+    try:
+        ctx = _require_ctx(token if isinstance(token, str) else "", deps)
+    except InvalidCredentialsError:
+        return "Please log in first."
+    selected = (
+        (appointment_value or "").strip()
+        if isinstance(appointment_value, str)
+        else ""
+    )
+    if not selected:
+        return "Please choose a scheduled appointment to cancel."
+    try:
+        from src.modules.appointments.domain.value_objects import AppointmentId
+
+        current = deps.appointments_repo.find_by_id_and_user_id(
+            AppointmentId(selected), ctx.user_id
+        )
+    except (ValueError, TypeError, AttributeError):
+        return "That appointment was not found. It may belong to another user."
+    if current is None:
+        return "That appointment was not found. It may belong to another user."
+    try:
+        status_val = str(current.status.value)
+    except (AttributeError, TypeError, ValueError):
+        status_val = str(getattr(current, "status", ""))
+    if status_val != "scheduled":
+        return "Only scheduled appointments can be cancelled."
+    cname = _resolve_client_name(deps, ctx.user_id, current.client_id)
+    return (
+        f"Are you sure you want to cancel {cname} on "
+        f"{current.starts_at:%d/%m/%Y %H:%M} UTC? Click 'Confirm cancel' to proceed."
+    )
+
+
 def handle_list_appointments(token: str, deps: UIDeps) -> str:
     """List owned appointments as human-readable lines (no ids)."""
     try:
@@ -861,7 +1189,7 @@ def handle_complete(
 
 
 def build_demo(deps: UIDeps) -> gr.Blocks:
-    """Build the auth-gated ChronoLog shell (TSK-018.1 + TSK-018.2 friendly).
+    """Build the auth-gated ChronoLog shell (TSK-018.1 + 018.2 + 018.3).
 
     Unauthenticated: only the auth screen is visible. Authenticated: the
     app shell with ``Dashboard | Clients | Agenda | History`` plus a
@@ -872,6 +1200,11 @@ def build_demo(deps: UIDeps) -> gr.Blocks:
     human-readable dropdowns (label=name, value=UUID hidden); scheduling
     uses calendar date + time-slot + duration controls composing tz-aware
     UTC windows via :func:`compose_schedule_window`.
+
+    TSK-018.3: Dashboard landing (counts + today's list + quick actions),
+    client search/filter + profile view (identity, upcoming, history via
+    ``GetClientHistory``, notes, schedule action), and confirm-before-cancel
+    (Cancel previews, Confirm cancel executes). Logout clears every view.
     """
     with gr.Blocks(title="ChronoLog") as demo:
         gr.Markdown("# ChronoLog — Appointment & Session Management (MVP)")
@@ -899,9 +1232,18 @@ def build_demo(deps: UIDeps) -> gr.Blocks:
             with gr.Tabs():
                 with gr.Tab("Dashboard"):
                     gr.Markdown(
-                        "Welcome back. Your overview lands here in TSK-018.3 — "
-                        "use Clients, Agenda or History to continue."
+                        "Your day at a glance — refresh to update counts."
                     )
+                    dashboard_view = gr.Textbox(
+                        label="Dashboard overview",
+                        value="Press Refresh dashboard to load your overview.",
+                        interactive=False,
+                    )
+                    with gr.Row():
+                        dash_refresh = gr.Button("Refresh dashboard")
+                        quick_client = gr.Button("+ New client")
+                        quick_appt = gr.Button("+ New appointment")
+                    dash_status = gr.Textbox(label="Result", interactive=False)
                 with gr.Tab("Clients"):
                     gr.Markdown(
                         "Register a client profile — the list refreshes automatically."
@@ -921,6 +1263,23 @@ def build_demo(deps: UIDeps) -> gr.Blocks:
                         label="My clients",
                         interactive=False,
                     )
+                    search = gr.Textbox(
+                        label="Search clients",
+                        placeholder="Type a name or email...",
+                    )
+                    with gr.Row():
+                        search_btn = gr.Button("Search")
+                        profile_btn = gr.Button("View profile")
+                    profile_client = gr.Dropdown(
+                        label="Profile client",
+                        choices=[],
+                        info="Choose one of your clients",
+                    )
+                    profile_view = gr.Textbox(
+                        label="Client profile",
+                        interactive=False,
+                    )
+                    sched_for_client_btn = gr.Button("Schedule for this client")
                 with gr.Tab("Agenda"):
                     gr.Markdown("## New appointment")
                     gr.Markdown(
@@ -984,6 +1343,7 @@ def build_demo(deps: UIDeps) -> gr.Blocks:
                     with gr.Row():
                         edit_btn = gr.Button("Edit appointment")
                         cancel_btn = gr.Button("Cancel appointment")
+                        confirm_cancel_btn = gr.Button("Confirm cancel")
                     manage_status = gr.Textbox(label="Result", interactive=False)
                 with gr.Tab("History"):
                     gr.Markdown("Client history plus manual session notes review.")
@@ -1060,11 +1420,16 @@ def build_demo(deps: UIDeps) -> gr.Blocks:
                 gr.update(choices=[], value=None),
                 gr.update(choices=[], value=None),
                 gr.update(choices=[], value=None),
+                "",
+                "",
+                "",
+                gr.update(choices=[], value=None),
+                "",
             )
 
         def _register_client_and_refresh(
             t: str, n: str, e: str, p: str
-        ) -> tuple[str, str, Any, Any]:
+        ) -> tuple[str, str, Any, Any, Any]:
             status = handle_create_client(t, n, e, p, deps)
             listing = handle_list_clients(t, deps)
             choices = get_client_choices(t, deps)
@@ -1073,13 +1438,15 @@ def build_demo(deps: UIDeps) -> gr.Blocks:
                 listing,
                 gr.update(choices=choices, value=None),
                 gr.update(choices=choices, value=None),
+                gr.update(choices=choices, value=None),
             )
 
-        def _refresh_clients(t: str) -> tuple[str, Any, Any]:
+        def _refresh_clients(t: str) -> tuple[str, Any, Any, Any]:
             listing = handle_list_clients(t, deps)
             choices = get_client_choices(t, deps)
             return (
                 listing,
+                gr.update(choices=choices, value=None),
                 gr.update(choices=choices, value=None),
                 gr.update(choices=choices, value=None),
             )
@@ -1132,6 +1499,15 @@ def build_demo(deps: UIDeps) -> gr.Blocks:
                 gr.update(choices=appts, value=None),
             )
 
+        def _quick_appt_and_guide(t: str) -> tuple[Any, str]:
+            choices, message = handle_quick_new_appointment(t, deps)
+            return (gr.update(choices=choices, value=None), message)
+
+        def _profile_to_agenda(t: str, c: str | None) -> tuple[Any, str]:
+            value, message = handle_profile_schedule_action(t, c, deps)
+            choices = get_client_choices(t, deps)
+            return (gr.update(choices=choices, value=value), message)
+
         def _refresh_hist_clients(t: str) -> tuple[Any, str, str]:
             choices = get_client_choices(t, deps)
             return (gr.update(choices=choices, value=None), "", "")
@@ -1148,12 +1524,12 @@ def build_demo(deps: UIDeps) -> gr.Blocks:
         client_save.click(
             _register_client_and_refresh,
             inputs=[token_state, name, client_email, phone],
-            outputs=[client_status, client_list, sched_client, hist_client],
+            outputs=[client_status, client_list, sched_client, hist_client, profile_client],
         )
         client_refresh.click(
             _refresh_clients,
             inputs=[token_state],
-            outputs=[client_list, sched_client, hist_client],
+            outputs=[client_list, sched_client, hist_client, profile_client],
         )
         # Agenda tab wiring.
         sched_btn.click(
@@ -1171,10 +1547,49 @@ def build_demo(deps: UIDeps) -> gr.Blocks:
             inputs=[token_state, appt_select, edit_date, edit_time, edit_duration],
             outputs=[manage_status, agenda_view, appt_select, complete_appt],
         )
+        # TSK-018.3 polish wiring: dashboard, search/profile, cancel confirm.
+        # Cancel asks for confirmation first; Confirm runs the domain cancel.
         cancel_btn.click(
+            lambda t, a: request_cancel_confirmation(t, a, deps),
+            inputs=[token_state, appt_select],
+            outputs=[manage_status],
+        )
+        confirm_cancel_btn.click(
             _cancel_and_refresh,
             inputs=[token_state, appt_select],
             outputs=[manage_status, agenda_view, appt_select, complete_appt],
+        )
+        dash_refresh.click(
+            lambda t: handle_dashboard(t, deps),
+            inputs=[token_state],
+            outputs=[dashboard_view],
+        )
+        quick_client.click(
+            lambda t: handle_quick_new_client(t, deps),
+            inputs=[token_state],
+            outputs=[dash_status],
+        )
+        quick_appt.click(
+            _quick_appt_and_guide,
+            inputs=[token_state],
+            outputs=[sched_client, dash_status],
+        )
+        search_btn.click(
+            lambda t, q: gr.update(
+                choices=search_client_choices(t, q, deps), value=None
+            ),
+            inputs=[token_state, search],
+            outputs=[profile_client],
+        )
+        profile_btn.click(
+            lambda t, c: handle_client_profile(t, c, deps),
+            inputs=[token_state, profile_client],
+            outputs=[profile_view],
+        )
+        sched_for_client_btn.click(
+            _profile_to_agenda,
+            inputs=[token_state, profile_client],
+            outputs=[sched_client, client_status],
         )
         # History tab wiring.
         hist_btn.click(
@@ -1242,6 +1657,11 @@ def build_demo(deps: UIDeps) -> gr.Blocks:
                 appt_select,
                 hist_client,
                 complete_appt,
+                dashboard_view,
+                dash_status,
+                search,
+                profile_client,
+                profile_view,
             ],
         )
     return demo
