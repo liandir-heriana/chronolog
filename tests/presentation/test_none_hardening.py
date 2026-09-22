@@ -30,7 +30,7 @@ def test_none_schedule_starts_returns_hint_error() -> None:
     deps, _ = _deps()
     token = _login(deps, "n17c@example.com")
     A.handle_create_client(token, "Alice", "alice@x.com", "", deps)
-    cid = A.handle_list_clients(token, deps).split(" | ")[0]
+    cid = A.get_client_choices(token, deps)[0][1]
     out = A.handle_schedule(token, cid, None, "2026-10-15 11:00", deps)  # type: ignore[arg-type]
     assert "failed" in out.lower()
 
@@ -53,8 +53,8 @@ def test_none_complete_content_returns_friendly_error() -> None:
     deps, _ = _deps()
     token = _login(deps, "n17e@example.com")
     A.handle_create_client(token, "Alice", "alice@x.com", "", deps)
-    cid = A.handle_list_clients(token, deps).split(" | ")[0]
+    cid = A.get_client_choices(token, deps)[0][1]
     A.handle_schedule(token, cid, "2026-11-15 10:00", "2026-11-15 11:00", deps)
-    aid = A.handle_list_appointments(token, deps).split(" | ")[0]
+    aid = A.get_appointment_choices(token, deps)[0][1]
     out = A.handle_complete(token, aid, None, deps)  # type: ignore[arg-type]
     assert "failed" in out.lower()

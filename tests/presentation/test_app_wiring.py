@@ -240,7 +240,9 @@ def test_scheduler_schedule_list_overlap_and_bad_input() -> None:
     deps, _ = _deps()
     token = _login(deps)
     handle_create_client(token, "Alice", "alice@example.com", "", deps)
-    client_id = handle_list_clients(token, deps).split(" | ")[0]
+    from src.presentation.app import get_client_choices
+
+    client_id = get_client_choices(token, deps)[0][1]
     ok = handle_schedule(token, client_id, "2026-10-15 10:00", "2026-10-15 11:00", deps)
     assert "Scheduled" in ok
     overlap = handle_schedule(
@@ -250,22 +252,24 @@ def test_scheduler_schedule_list_overlap_and_bad_input() -> None:
     bad = handle_schedule(token, client_id, "not-a-date", "2026-10-15 11:00", deps)
     assert "failed" in bad.lower()
     listed = handle_list_appointments(token, deps)
-    assert "scheduled" in listed
+    assert "scheduled" in listed.lower()
 
 
 def test_history_and_complete_flow() -> None:
     deps, _ = _deps()
     token = _login(deps)
     handle_create_client(token, "Alice", "alice@example.com", "", deps)
-    client_id = handle_list_clients(token, deps).split(" | ")[0]
+    from src.presentation.app import get_appointment_choices, get_client_choices
+
+    client_id = get_client_choices(token, deps)[0][1]
     handle_schedule(token, client_id, "2026-10-15 10:00", "2026-10-15 11:00", deps)
-    appt_id = handle_list_appointments(token, deps).split(" | ")[0]
+    appt_id = get_appointment_choices(token, deps)[0][1]
     summary, _notes = handle_history(token, client_id, deps)
     assert "Alice" in summary
     done = handle_complete(token, appt_id, "First session went well.", deps)
     assert "Completed" in done
     summary2, _notes2 = handle_history(token, client_id, deps)
-    assert "completed" in summary2
+    assert "completed" in summary2.lower()
     bad = handle_complete(token, appt_id, "   ", deps)
     assert "failed" in bad.lower()
 
@@ -299,7 +303,9 @@ def test_future_appointments_accepted_past_rejected() -> None:
     deps, _ = _deps()
     token = _login(deps)
     handle_create_client(token, "Alice", "alice@example.com", "", deps)
-    client_id = handle_list_clients(token, deps).split(" | ")[0]
+    from src.presentation.app import get_client_choices
+
+    client_id = get_client_choices(token, deps)[0][1]
     future = datetime.now(UTC) + timedelta(days=30)
     ok = handle_schedule(
         token,

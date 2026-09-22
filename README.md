@@ -77,6 +77,27 @@ Notes:
 - If `docker` denies access to the daemon, the durable fix is
   `sudo usermod -aG docker $USER` followed by a re-login.
 
+## Demo data & manual testing
+
+`db/seed_demo.py` loads a demo dataset: 2 users (`admin@chronolog.test` /
+`admin`, `user@chronolog.test` / `user`), 3 clients each, 3 appointments
+per client (completed + cancelled in the past, scheduled upcoming).
+Manual-testing only — never run it outside your local environment.
+
+```bash
+docker compose up -d postgres && sleep 5
+# fresh volume? apply migrations first (idempotent):
+for f in db/migrations/V*.sql; do
+  docker compose exec -T postgres psql -U chronolog -d chronolog -f - < "$f"
+done
+.venv/bin/python db/seed_demo.py   # re-runnable, wipes its own rows first
+docker compose up --build -d       # open http://127.0.0.1:7860
+docker compose down                # keep data; use -v to wipe to zero
+```
+
+Note: running `pytest` afterwards TRUNCATEs these tables (test isolation),
+so seed AFTER the suite, demo last.
+
 ## Project layout
 
 ```text
